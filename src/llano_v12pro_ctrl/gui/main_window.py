@@ -1,4 +1,4 @@
-"""Hauptfenster der v12pro-ctrl GUI: Live-Status + volle Steuerung des
+"""Hauptfenster der llano-v12pro-ctrl GUI: Live-Status + volle Steuerung des
 llano V12 Pro Kühlpads.
 
 Nutzt device.py/protocol.py exakt wie cli.py - keine eigene Report- oder
@@ -34,7 +34,7 @@ SPEED_LABELS = {0: "0 (schnell)", 1: "1 (mittel)", 2: "2 (langsam)", 3: "3 (sehr
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("v12pro-ctrl")
+        self.setWindowTitle("llano-v12pro-ctrl")
 
         self._device = None  # device.Device | None (offen solange verbunden)
         self._last_report = None  # zuletzt gelesener protocol.Report

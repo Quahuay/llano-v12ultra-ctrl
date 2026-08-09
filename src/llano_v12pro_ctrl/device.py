@@ -3,7 +3,7 @@
 Gerät wird robust über VID/PID in sysfs gesucht (statt fest an einen
 hidraw-Index gebunden zu sein, der sich bei jedem Replug ändern kann).
 Voraussetzung: udev-Regel, die dem Nutzer rw-Zugriff auf das Device gibt
-(siehe packaging/70-v12pro-ctrl.rules).
+(siehe packaging/70-llano-v12pro-ctrl.rules).
 """
 
 import ctypes
@@ -95,7 +95,7 @@ class Device:
         """Liest (nicht-blockierend, mit Timeout) den rohen 64-Byte
         Input-Report, falls das Gerät gerade einen sendet.
 
-        Rein zur Beobachtung/Diagnose (z.B. `v12pro-ctrl raw-input`) - laut
+        Rein zur Beobachtung/Diagnose (z.B. `llano-v12pro-ctrl raw-input`) - laut
         bisherigen Tests ohne bekannten inhaltsabhängigen Effekt und ohne
         bekannte Bedeutung (siehe protocol.py, Abschnitt zu den 64-Byte
         Input-/Output-Reports). Es wird bewusst NICHT auf den 64-Byte

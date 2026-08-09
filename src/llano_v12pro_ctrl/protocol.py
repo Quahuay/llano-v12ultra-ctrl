@@ -26,7 +26,7 @@ gelesen/geschrieben werden):
               Wert liest GET_FEATURE hier immer 0x88 zurück - reines
               Input-Feld ohne Bezug zum Schreibwert (wie byte1/byte2/
               teilweise byte4, siehe unten). Bedeutung von 0x88 unbekannt.
-              v12pro-ctrl schreibt hier weiterhin 0x00 (wie die echte App),
+              llano-v12pro-ctrl schreibt hier weiterhin 0x00 (wie die echte App),
               da der Schreibwert nachweislich ignoriert wird.
               Zusätzlich getestet: bleibt bei 0x88, auch wenn die Einheit
               über den kill_flag (byte2) komplett ausgeschaltet ist - kein
@@ -70,7 +70,7 @@ gelesen/geschrieben werden):
               per Software zu beeinflussen (nur an/aus, keine Drehzahl-
               Stufen) - unabhängig von der weiterhin bestehenden Grenze,
               dass die Drehzahl selbst nicht stufenlos einstellbar ist.
-              v12pro-ctrl nutzt dies für den `power`-Befehl.
+              llano-v12pro-ctrl nutzt dies für den `power`-Befehl.
     Index  4: byte3 = effect
               Bestätigt per Software steuerbar UND mit sichtbarer Wirkung
               (live am Gerät verifiziert). Deckt sich mit den 4 Modi aus
@@ -129,7 +129,7 @@ gelesen/geschrieben werden):
                 0x30        langsam  (~2s/Schritt)
                 0x40-0x80   schnell  (wieder wie 0x00)
                 0x90-0xFF   langsam
-              Empfehlung für v12pro-ctrl: Standardmäßig nur 0-3 anbieten
+              Empfehlung für llano-v12pro-ctrl: Standardmäßig nur 0-3 anbieten
               (deckt sich mit der echten App), höhere Werte nur für
               Experimentierzwecke.
     Index  7: byte6 = brightness

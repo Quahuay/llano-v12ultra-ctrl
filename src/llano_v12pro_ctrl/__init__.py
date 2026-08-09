@@ -1,4 +1,4 @@
-"""v12pro-ctrl: natives Linux-Steuerungstool für das llano V12 Pro Kühlpad
+"""llano-v12pro-ctrl: natives Linux-Steuerungstool für das llano V12 Pro Kühlpad
 (Myth.Cool / Holtek USB-HID 374a:b101).
 
 Siehe protocol.py für die Beschreibung des HID-Feature-Report-Layouts und

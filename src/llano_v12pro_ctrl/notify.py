@@ -1,4 +1,4 @@
-"""Desktop-Benachrichtigungen für v12pro-ctrl.
+"""Desktop-Benachrichtigungen für llano-v12pro-ctrl.
 
 Die Lüfterdrehzahl ist eine reine Hardware-Grenze (siehe protocol.py):
 Software kann sie nicht setzen, nur das physische Rad am Pad regelt sie.
@@ -28,7 +28,7 @@ def send(title, body, urgency="normal"):
         return
     try:
         subprocess.run(
-            ["notify-send", "--urgency", urgency, "--app-name", "v12pro-ctrl", title, body],
+            ["notify-send", "--urgency", urgency, "--app-name", "llano-v12pro-ctrl", title, body],
             capture_output=True,
             timeout=2,
         )

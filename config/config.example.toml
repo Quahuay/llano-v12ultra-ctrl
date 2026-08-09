@@ -1,5 +1,5 @@
-# Beispiel-Konfiguration für `v12pro-ctrl auto` (temperaturbasierte RGB-Farbumschaltung).
-# Nach ~/.config/v12pro-ctrl/config.toml kopieren und nach Bedarf anpassen.
+# Beispiel-Konfiguration für `llano-v12pro-ctrl auto` (temperaturbasierte RGB-Farbumschaltung).
+# Nach ~/.config/llano-v12pro-ctrl/config.toml kopieren und nach Bedarf anpassen.
 #
 # WICHTIG: Das Pad unterstützt KEINE stufenlose Software-Lüfterdrehzahl -
 # das ist eine Hardware/Firmware-Grenze, keine Einschränkung dieses Tools.
@@ -69,4 +69,4 @@ cooldown_s = 300
 # Lasten zu finden. Eine Zeile pro poll_interval_s.
 [auto.log]
 enabled = false
-path = "~/.local/share/v12pro-ctrl/history.csv"
+path = "~/.local/share/llano-v12pro-ctrl/history.csv"

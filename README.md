@@ -1,4 +1,4 @@
-# v12pro-ctrl
+# llano-v12pro-ctrl
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
@@ -12,7 +12,7 @@
 Natives Linux-Steuerungstool für das **llano V12 Pro** RGB-Laptop-Kühlpad (Holtek USB-HID
 `374a:b101`), dessen offizielle Windows-Software **Myth.Cool** ist. Statt die Windows-App unter
 Wine laufen zu lassen (kaputte UI-Texte, nicht funktionierendes Sensor-Dashboard), spricht
-`v12pro-ctrl` das Gerät direkt über `/dev/hidraw*` an, reverse-engineered aus echtem USB-Traffic
+`llano-v12pro-ctrl` das Gerät direkt über `/dev/hidraw*` an, reverse-engineered aus echtem USB-Traffic
 der Original-App und durch systematische Live-Tests am physischen Gerät.
 
 ## Inhaltsverzeichnis
@@ -30,9 +30,9 @@ der Original-App und durch systematische Live-Tests am physischen Gerät.
 
 ## Features
 
-- **CLI** (`v12pro-ctrl`): Farbe, Effekt, Effekt-Geschwindigkeit und Helligkeit setzen, Gerät
+- **CLI** (`llano-v12pro-ctrl`): Farbe, Effekt, Effekt-Geschwindigkeit und Helligkeit setzen, Gerät
   komplett ein-/ausschalten, Live-Telemetrie beobachten
-- **GUI** (`v12pro-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive Live-Status-Anzeige
+- **GUI** (`llano-v12pro-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive Live-Status-Anzeige
   und Steuerung des Automatik-Dienstes
 - **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
   (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
@@ -45,18 +45,18 @@ der Original-App und durch systematische Live-Tests am physischen Gerät.
   einen auffälligeren Effekt setzen (z.B. `chase`/Lauflicht)
 - Keine externen HID-Bibliotheken nötig: direkte `HIDIOCGFEATURE`/`HIDIOCSFEATURE`-ioctls auf
   `/dev/hidraw*`
-- Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/v12pro_ctrl/protocol.py)),
-  inklusive Diagnose-Befehl für den rohen 64-Byte Input-Report (`v12pro-ctrl raw-input`)
+- Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/llano_v12pro_ctrl/protocol.py)),
+  inklusive Diagnose-Befehl für den rohen 64-Byte Input-Report (`llano-v12pro-ctrl raw-input`)
 
 ## Hardware-Hintergrund
 
 Das Pad hat **keine software-steuerbare stufenlose Lüfterdrehzahl**. Das ist eine
 Hardware/Firmware-Grenze, keine Einschränkung dieses Tools. Die Drehzahl bleibt ausschließlich
-über das physische Rad am Pad einstellbar; `v12pro-ctrl` liest sie nur aus (Live-Telemetrie).
+über das physische Rad am Pad einstellbar; `llano-v12pro-ctrl` liest sie nur aus (Live-Telemetrie).
 Software-seitig steuerbar sind: RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit,
 Helligkeit, sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht).
 
-Da die Drehzahl selbst nicht regelbar ist, bietet `v12pro-ctrl` stattdessen zwei indirekte
+Da die Drehzahl selbst nicht regelbar ist, bietet `llano-v12pro-ctrl` stattdessen zwei indirekte
 Werkzeuge rund um diese Grenze an (siehe [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)):
 eine Desktop-Erinnerung, das Rad manuell hochzudrehen, und ein optionales Verlaufsprotokoll, um im
 Nachhinein die passende Radstellung für typische Lasten zu finden.
@@ -100,7 +100,7 @@ pipx install .
 Damit der eigene Linux-Nutzer ohne root auf das HID-Gerät zugreifen darf:
 
 ```bash
-sudo cp packaging/70-v12pro-ctrl.rules /etc/udev/rules.d/
+sudo cp packaging/70-llano-v12pro-ctrl.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
@@ -114,14 +114,14 @@ sudo usermod -aG plugdev "$USER"   # danach neu einloggen
 ## Nutzung
 
 ```bash
-v12pro-ctrl status                                      # aktuellen Zustand + Live-Telemetrie anzeigen
-v12pro-ctrl light --color red --effect breathing         # Farbe/Effekt setzen
-v12pro-ctrl light --brightness 128                       # nur Helligkeit ändern
-v12pro-ctrl light --off                                  # Beleuchtung aus (Lüfter läuft weiter)
-v12pro-ctrl power off                                    # gesamte Einheit aus (Lüfter + Licht)
-v12pro-ctrl monitor                                       # Live-Telemetrie laufend anzeigen
-v12pro-ctrl raw-input                                      # rohen 64-Byte Input-Report beobachten (Diagnose)
-v12pro-ctrl-gui                                           # grafische Oberfläche starten
+llano-v12pro-ctrl status                                      # aktuellen Zustand + Live-Telemetrie anzeigen
+llano-v12pro-ctrl light --color red --effect breathing         # Farbe/Effekt setzen
+llano-v12pro-ctrl light --brightness 128                       # nur Helligkeit ändern
+llano-v12pro-ctrl light --off                                  # Beleuchtung aus (Lüfter läuft weiter)
+llano-v12pro-ctrl power off                                    # gesamte Einheit aus (Lüfter + Licht)
+llano-v12pro-ctrl monitor                                       # Live-Telemetrie laufend anzeigen
+llano-v12pro-ctrl raw-input                                      # rohen 64-Byte Input-Report beobachten (Diagnose)
+llano-v12pro-ctrl-gui                                           # grafische Oberfläche starten
 ```
 
 | Option | Werte |
@@ -131,13 +131,13 @@ v12pro-ctrl-gui                                           # grafische Oberfläch
 | `--speed` | `0`-`3` (offiziell validierter Bereich, 0=schnell) |
 | `--brightness` | `0`-`255` |
 
-Details zu allen Optionen: `v12pro-ctrl <befehl> --help`.
+Details zu allen Optionen: `llano-v12pro-ctrl <befehl> --help`.
 
 ## Automatikmodus (Temperatur-Indikator)
 
 ```bash
-cp config/config.example.toml ~/.config/v12pro-ctrl/config.toml   # anpassen nach Bedarf
-v12pro-ctrl auto
+cp config/config.example.toml ~/.config/llano-v12pro-ctrl/config.toml   # anpassen nach Bedarf
+llano-v12pro-ctrl auto
 ```
 
 Schaltet die Pad-Farbe je nach CPU-Temperatur um (grün → orange → rot), mit optionalem
@@ -146,9 +146,9 @@ GPU-Temperatur-Alarm (lila/breathing), siehe Kommentare in
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp systemd/v12pro-ctrl.service ~/.config/systemd/user/
+cp systemd/llano-v12pro-ctrl.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now v12pro-ctrl.service
+systemctl --user enable --now llano-v12pro-ctrl.service
 ```
 
 Die GUI zeigt den Auto-Modus-Status an und kann den Dienst für die laufende Sitzung
@@ -158,7 +158,7 @@ nach dem nächsten Login/Neustart normal weiter.
 ## Lüfter-Erinnerung & Verlaufsprotokoll
 
 Beide Optionen leben im `auto`-Modus (siehe oben) und sind standardmäßig deaktiviert. Aktivierung
-in `~/.config/v12pro-ctrl/config.toml`, siehe kommentierte Beispiele in
+in `~/.config/llano-v12pro-ctrl/config.toml`, siehe kommentierte Beispiele in
 [`config/config.example.toml`](config/config.example.toml).
 
 **Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
@@ -176,11 +176,11 @@ ausreichend Kühlung liefert.
 
 Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
 Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
-Docstring in [`src/v12pro_ctrl/protocol.py`](src/v12pro_ctrl/protocol.py).
+Docstring in [`src/llano_v12pro_ctrl/protocol.py`](src/llano_v12pro_ctrl/protocol.py).
 
 Neben dem Feature-Report existiert laut HID-Report-Descriptor auch ein 64-Byte Output- und
 Input-Report. Beide wurden bereits getestet, bisher ohne bekannten inhaltsabhängigen Effekt
-(vermutlich ungenutztes Boilerplate der Holtek-Referenzvorlage). `v12pro-ctrl raw-input` erlaubt
+(vermutlich ungenutztes Boilerplate der Holtek-Referenzvorlage). `llano-v12pro-ctrl raw-input` erlaubt
 weiteres manuelles Beobachten des Input-Reports. Bewusst **nicht** implementiert: automatisiertes
 Schreiben/Fuzzing des Output-Reports. Blindes Ausprobieren von undokumentierten Report-Bytes ohne
 konkrete Hypothese ist ein unnötiges Risiko für unerwartetes Geräteverhalten auf echter Hardware.

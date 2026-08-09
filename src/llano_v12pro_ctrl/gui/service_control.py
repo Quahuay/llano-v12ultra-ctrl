@@ -1,4 +1,4 @@
-"""Steuerung des v12pro-ctrl.service (systemd --user Auto-Modus-Daemon)
+"""Steuerung des llano-v12pro-ctrl.service (systemd --user Auto-Modus-Daemon)
 aus der GUI heraus.
 
 Die GUI schaltet den Daemon nur für die laufende Sitzung per stop/start
@@ -9,7 +9,7 @@ README.
 
 import subprocess
 
-SERVICE_NAME = "v12pro-ctrl.service"
+SERVICE_NAME = "llano-v12pro-ctrl.service"
 
 
 def is_active() -> bool:

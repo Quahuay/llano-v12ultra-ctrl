@@ -190,7 +190,7 @@ def cmd_auto(args):
                     now = time.time()
                     if now - last_reminder_ts >= fan_cfg.get("cooldown_s", 300):
                         notify_mod.send(
-                            "v12pro-ctrl: Lüfter zu langsam",
+                            "llano-v12pro-ctrl: Lüfter zu langsam",
                             f"CPU {t:.0f}°C, aber nur {report.fan_rpm} U/min. Rad am Pad manuell hochdrehen?",
                             urgency="critical",
                         )
@@ -208,7 +208,7 @@ def cmd_auto(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="v12pro-ctrl", description="Steuerung für das llano V12 Pro Kühlpad (Myth.Cool / Holtek 374a:b101)")
+    p = argparse.ArgumentParser(prog="llano-v12pro-ctrl", description="Steuerung für das llano V12 Pro Kühlpad (Myth.Cool / Holtek 374a:b101)")
     sub = p.add_subparsers(dest="command", required=True)
 
     p_status = sub.add_parser("status", help="aktuellen Gerätezustand anzeigen (Farbe/Effekt/Geschwindigkeit + Live-Telemetrie)")
@@ -235,7 +235,7 @@ def build_parser():
     p_raw_input.set_defaults(func=cmd_raw_input)
 
     p_auto = sub.add_parser("auto", help="Temperaturbasierten Auto-Farb-Daemon starten (visueller Temperatur-Indikator)")
-    p_auto.add_argument("--config", default=None, help="Pfad zur config.toml (default ~/.config/v12pro-ctrl/config.toml)")
+    p_auto.add_argument("--config", default=None, help="Pfad zur config.toml (default ~/.config/llano-v12pro-ctrl/config.toml)")
     p_auto.set_defaults(func=cmd_auto)
 
     return p
