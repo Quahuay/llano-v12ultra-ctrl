@@ -226,13 +226,52 @@ mindestens einmal geprüft worden, ob dort überhaupt irgendeine Reaktion
 existiert - kein vollständiger Beweis (andere Werte an derselben Position
 oder Mehr-Byte-Kombinationen bleiben ungetestet), aber ein deutlich
 stärkeres Indiz als die vorherigen 2 Stichproben. Verbleibende, nicht
-verfolgte Optionen für noch mehr Sicherheit: (a) den ursprünglichen
-USB-Traffic-Mitschnitt der echten App (`~/mythcool_capture_copy.pcap`) mit
-einem richtigen Skript statt Ad-hoc-Befehlen sauber neu auswerten -
-ein erster Versuch dazu blieb wegen der Größe/Komplexität der Datei
-(viele Geräte, mehrfache Re-Enumeration) ergebnislos; (b) das Gehäuse
-physisch öffnen und nachsehen, ob das Rad tatsächlich ein reines
-Potentiometer ohne Aktuator ist.
+verfolgte Option für noch mehr Sicherheit: das Gehäuse physisch öffnen und
+nachsehen, ob das Rad tatsächlich ein reines Potentiometer ohne Aktuator
+ist.
+
+NACHTRAG 3 (pcap-Neuanalyse + vollständiger Fuzz, 2026-08-10): Die erste
+pcap-Analyse (siehe Nachtrag 2) scheiterte an falschen tshark-Feldnamen
+(`usb.setup.bRequest` statt des für HID-Class-Requests tatsächlich
+genutzten `usbhid.setup.bRequest`). Mit den korrekten Feldnamen wurde die
+GESAMTE 460MB-Aufzeichnung sauber ausgewertet: **1306 SET_REPORT- und 1300
+GET_REPORT-Aufrufe der echten App**, ausschließlich an die beiden
+bestätigten Holtek-USB-Adressen dieser Aufzeichnung, **alle mit
+Report-Typ Feature (0x03) und wLength=8** (passt exakt zum bekannten
+8-Byte-Body) - **null Aufrufe mit Report-Typ Output oder Input**. Das ist
+eine Ganzdatei-Bestätigung über >1300 echte Nutzerinteraktionen hinweg,
+nicht nur eine Stichprobe: die Original-App nutzt den Output-Report
+nachweislich nie.
+
+Zusätzlich auf ausdrücklichen Wunsch des Nutzers (der dem Risiko bewusst
+zugestimmt hat, samt bekannter Recovery-Methode per Replug) ein
+VOLLSTÄNDIGER Sweep aller 64 Positionen x aller 256 Werte (16384
+Schreib-Lese-Zyklen, device.py/write_output_report()) durchgeführt: **0
+anhaltende Abweichungen** im zurückgelesenen Feature-Report, Gerät danach
+unverändert im Ausgangszustand, keine USB-Rebinds. Das deckt den
+gesamten Wertebereich jeder Einzelposition vollständig ab (Mehr-Byte-
+Kombinationen bleiben weiterhin ungetestet, wären aber 256^64 - praktisch
+nicht durchprobierbar).
+
+Dabei aber ein echter, reproduzierbarer Nebenbefund: **jeder** Schreib-
+vorgang auf den Output-Report löst am Gerät einen kurzen sichtbaren
+Blitz/Strobo aus - unabhängig vom geschriebenen Inhalt. Gezielt mit 4
+isolierten Einzelschreibvorgängen (alles 0x00, alles 0xFF, wieder alles
+0x00, ein einzelnes Byte an Position 5) im Abstand von je 3 Sekunden
+nachgetestet: 4 von 4 mal vom Nutzer bestätigt beobachtet. Das klärt die
+in Nachtrag 1 erwähnten "zwei beobachteten kurzen Reset-Blitze, die nicht
+konsistent bei gleichem Inhalt auftraten" endgültig auf - sie sind gar
+nicht inhaltsabhängig, sondern eine reine Empfangs-Nebenwirkung der
+Firmware (vermutlich ein interner Reset/Re-Init-Zyklus, der bei jedem
+eingehenden Output-Report ausgelöst wird). Kein steuerbarer Lichteffekt,
+kein Hinweis auf einen Fan-Speed-Schreibpfad - bestätigt im Gegenteil,
+dass der Channel technisch "lebt" (die Firmware reagiert auf den Empfang),
+inhaltlich aber weiterhin ohne erkennbare Funktion ist.
+
+Gesamtfazit nach allen bisherigen Tests: Lüfterdrehzahl per Software zu
+setzen ist nach aktuellem Kenntnisstand nicht möglich. Einzige verbleibende
+Methode für noch mehr Gewissheit wäre die physische Inspektion des Rads
+(siehe oben).
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum

@@ -202,17 +202,23 @@ Docstring in [`src/llano_v12pro_ctrl/protocol.py`](src/llano_v12pro_ctrl/protoco
 
 Der komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei
 Reports, keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature
-(letzterer vollständig reverse-engineered). Speziell zur Frage "kann man die Lüfterdrehzahl doch
-irgendwie setzen?" wurden zusätzlich zwei gezielte Hypothesen sowie ein systematischer Sweep aller
-64 Output-Report-Positionen (je ein Testwert pro Position, mit Zurücklesen + Nutzer-Beobachtung
-nach jeder einzelnen Position) live getestet - **alle ohne jede Wirkung**, siehe Nachtrag in
-[`protocol.py`](src/llano_v12pro_ctrl/protocol.py) für Details und verbleibende, nicht verfolgte
-Optionen (saubere Neuanalyse des originalen USB-Mitschnitts, physische Inspektion des Rads).
-`llano-v12pro-ctrl raw-input` erlaubt weiteres manuelles Beobachten des Input-Reports. Bewusst
-**nicht** implementiert: automatisiertes Schreiben/Fuzzing über den gesamten 64-Byte-Wertebereich
-mit allen 256 Werten pro Position. Blindes Ausprobieren von undokumentierten
-Report-Bytes ohne konkrete Hypothese ist ein unnötiges Risiko für unerwartetes Geräteverhalten auf
-echter Hardware.
+(letzterer vollständig reverse-engineered). Zur Frage "kann man die Lüfterdrehzahl doch irgendwie
+setzen?" wurde inzwischen erschöpfend getestet:
+
+- **Pcap-Neuanalyse**: der originale USB-Mitschnitt der echten App (460MB) wurde vollständig
+  ausgewertet - über 1300 echte SET_REPORT/GET_REPORT-Aufrufe der App, ausnahmslos alle mit
+  Report-Typ Feature, keiner mit Report-Typ Output.
+- **Vollständiger Fuzz**: alle 64 Output-Report-Positionen x alle 256 Werte (16384
+  Schreib-Lese-Zyklen) live gegen echte Hardware getestet - 0 anhaltende Auswirkungen auf den
+  zurückgelesenen Zustand.
+- Dabei aber ein reproduzierbarer Nebenbefund: **jeder** Schreibvorgang auf den Output-Report löst
+  einen kurzen, inhaltsunabhängigen Lichtblitz aus (4/4 bei gezieltem Nachtest bestätigt) - eine
+  Firmware-Nebenwirkung des Empfangs, kein steuerbarer Effekt und kein Hinweis auf einen
+  Fan-Speed-Pfad.
+
+Details und die Historie aller Tests stehen im Nachtrag in
+[`protocol.py`](src/llano_v12pro_ctrl/protocol.py). `llano-v12pro-ctrl raw-input` erlaubt weiteres
+manuelles Beobachten des Input-Reports.
 
 ## Beitragen
 
