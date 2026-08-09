@@ -212,6 +212,27 @@ Lüfter-Stromkreis, der Holtek-Chip liest dessen Stellung nur für die
 Telemetrie/Anzeige aus, hat aber keinen Aktuator, den er ansteuern könnte -
 das würde erklären, warum keine der drei HID-Schnittstellen einen
 Schreibpfad dafür hat.
+
+NACHTRAG 2 (systematischer Sweep, 2026-08-10): Auf Wunsch des Nutzers ("gibt
+es nicht noch mehr Optionen?") zusätzlich ein begründeter, aber deutlich
+breiterer Test: alle 64 Byte-Positionen des Output-Reports EINZELN mit dem
+Testwert 100 beschrieben (Rest der 64 Byte auf 0x00), nacheinander, mit
+Zurücklesen des Feature-Reports nach jeder Position und Beobachtung von
+Display/Lüfter durch den Nutzer. 0 von 64 Positionen zeigten irgendeine
+Abweichung - weder im zurückgelesenen Feature-Report (RPM/Farbe/Effekt/
+Speed/Helligkeit/Checksum unverändert) noch am physischen Gerät. Damit ist
+mit einem einzelnen Testwert (100) an JEDER möglichen Byte-Position
+mindestens einmal geprüft worden, ob dort überhaupt irgendeine Reaktion
+existiert - kein vollständiger Beweis (andere Werte an derselben Position
+oder Mehr-Byte-Kombinationen bleiben ungetestet), aber ein deutlich
+stärkeres Indiz als die vorherigen 2 Stichproben. Verbleibende, nicht
+verfolgte Optionen für noch mehr Sicherheit: (a) den ursprünglichen
+USB-Traffic-Mitschnitt der echten App (`~/mythcool_capture_copy.pcap`) mit
+einem richtigen Skript statt Ad-hoc-Befehlen sauber neu auswerten -
+ein erster Versuch dazu blieb wegen der Größe/Komplexität der Datei
+(viele Geräte, mehrfache Re-Enumeration) ergebnislos; (b) das Gehäuse
+physisch öffnen und nachsehen, ob das Rad tatsächlich ein reines
+Potentiometer ohne Aktuator ist.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum

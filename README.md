@@ -203,12 +203,14 @@ Docstring in [`src/llano_v12pro_ctrl/protocol.py`](src/llano_v12pro_ctrl/protoco
 Der komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei
 Reports, keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature
 (letzterer vollständig reverse-engineered). Speziell zur Frage "kann man die Lüfterdrehzahl doch
-irgendwie setzen?" wurden zusätzlich gezielt zwei Hypothesen live gegen den Output-Report getestet
-(bekanntes Feature-Layout gespiegelt; ein Byte aus dem RPM-Wertebereich einzeln an zwei Positionen) -
-beide ohne jede Wirkung, siehe Nachtrag in
-[`protocol.py`](src/llano_v12pro_ctrl/protocol.py). `llano-v12pro-ctrl raw-input` erlaubt weiteres
-manuelles Beobachten des Input-Reports. Bewusst **nicht** implementiert: automatisiertes
-Schreiben/Fuzzing über den gesamten 64-Byte-Wertebereich. Blindes Ausprobieren von undokumentierten
+irgendwie setzen?" wurden zusätzlich zwei gezielte Hypothesen sowie ein systematischer Sweep aller
+64 Output-Report-Positionen (je ein Testwert pro Position, mit Zurücklesen + Nutzer-Beobachtung
+nach jeder einzelnen Position) live getestet - **alle ohne jede Wirkung**, siehe Nachtrag in
+[`protocol.py`](src/llano_v12pro_ctrl/protocol.py) für Details und verbleibende, nicht verfolgte
+Optionen (saubere Neuanalyse des originalen USB-Mitschnitts, physische Inspektion des Rads).
+`llano-v12pro-ctrl raw-input` erlaubt weiteres manuelles Beobachten des Input-Reports. Bewusst
+**nicht** implementiert: automatisiertes Schreiben/Fuzzing über den gesamten 64-Byte-Wertebereich
+mit allen 256 Werten pro Position. Blindes Ausprobieren von undokumentierten
 Report-Bytes ohne konkrete Hypothese ist ein unnötiges Risiko für unerwartetes Geräteverhalten auf
 echter Hardware.
 
