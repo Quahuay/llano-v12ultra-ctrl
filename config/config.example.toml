@@ -4,7 +4,8 @@
 # WICHTIG: Das Pad unterstützt KEINE stufenlose Software-Lüfterdrehzahl -
 # das ist eine Hardware/Firmware-Grenze, keine Einschränkung dieses Tools.
 # Die Lüfterdrehzahl bleibt ausschließlich über das physische Rad am Pad
-# steuerbar.
+# steuerbar. Weiter unten gibt es zwei Möglichkeiten, mit dieser Grenze
+# umzugehen: einen Lüfter-Erinnerungs-Alarm und ein Verlaufsprotokoll.
 #
 # "auto" schaltet stattdessen die RGB-Farbe (0=rot, 1=hellblau, 2=grün,
 # 3=lila, 4=orange) je nach CPU-Temperatur um - nützlich als visueller
@@ -30,6 +31,15 @@ color = 4   # orange = warm
 temp_c = 70
 color = 0   # rot = heiß
 
+# effect/speed sind optional (Default: 0=solid, 0=schnell). Eine hohe
+# Schwelle kann so statt nur eine andere Farbe auch einen auffälligeren
+# Effekt setzen, z.B. chase (3) als deutlich sichtbaren Kritisch-Alarm.
+[[auto.thresholds]]
+temp_c = 85
+color = 0    # rot
+effect = 3   # chase (Lauflicht)
+speed = 0    # 0=schnell
+
 # GPU-Temperatur-Alarm: übersteuert die obige CPU-Farblogik mit lila
 # (color=3) + breathing (effect=1), sobald die GPU >= temp_c UND
 # mindestens so heiß wie die aktuelle CPU ist ("wer wärmer ist gewinnt").
@@ -42,3 +52,21 @@ hysteresis_c = 5
 color = 3    # lila
 effect = 1   # breathing
 speed = 0    # 0=schnell (offizieller Bereich 0-3)
+
+# Lüfter-Erinnerung: Ersatz für einen echten Regelkreis, da die Drehzahl
+# nicht per Software gesetzt werden kann. Schickt eine Desktop-Notification
+# (notify-send), wenn die CPU >= temp_c ist, aber die gemessene Drehzahl
+# unter min_rpm bleibt - als Erinnerung, das Rad am Pad manuell hochzudrehen.
+# cooldown_s verhindert Spam, solange die Bedingung anhält.
+[auto.fan_reminder]
+enabled = false
+temp_c = 75
+min_rpm = 1500
+cooldown_s = 300
+
+# CSV-Verlaufsprotokoll (Zeitstempel/Temperaturen/RPM/Farbe/Effekt) für
+# spätere Auswertung, z.B. um eine passende Radstellung für typische
+# Lasten zu finden. Eine Zeile pro poll_interval_s.
+[auto.log]
+enabled = false
+path = "~/.local/share/v12pro-ctrl/history.csv"

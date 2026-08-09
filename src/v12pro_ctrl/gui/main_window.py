@@ -21,10 +21,12 @@ from PyQt6.QtWidgets import (
 
 from .. import protocol
 from . import device_worker, service_control
+from .widgets import Sparkline
 
 POLL_INTERVAL_MS = 300  # wie cmd_monitor-Default (--interval 0.3)
 RECONNECT_PROBE_MS = 2000  # langsamere Probe, solange kein Gerät gefunden wird
 SERVICE_POLL_MS = 2000  # systemctl-Aufrufe sind teurer als ioctls, seltener pollen
+RPM_HISTORY_LEN = 400  # bei 300ms Poll-Intervall ~2 Minuten Verlauf
 
 SPEED_LABELS = {0: "0 (schnell)", 1: "1 (mittel)", 2: "2 (langsam)", 3: "3 (sehr langsam)"}
 
@@ -101,6 +103,12 @@ class MainWindow(QMainWindow):
         for row, (label_text, value_label) in enumerate(rows):
             grid.addWidget(QLabel(label_text), row, 0)
             grid.addWidget(value_label, row, 1)
+
+        rpm_row = len(rows)
+        grid.addWidget(QLabel("RPM-Verlauf:"), rpm_row, 0)
+        self.rpm_sparkline = Sparkline(maxlen=RPM_HISTORY_LEN)
+        grid.addWidget(self.rpm_sparkline, rpm_row, 1)
+
         return box
 
     def _build_control_group(self):
@@ -215,6 +223,7 @@ class MainWindow(QMainWindow):
             self._device.close()
         self._device = None
         self._last_report = None
+        self.rpm_sparkline.clear()
         self.disconnect_banner.setVisible(True)
         if message:
             self.disconnect_banner.setText(f"⚠ {message}")
@@ -236,6 +245,7 @@ class MainWindow(QMainWindow):
         self._sync_controls(report)
 
     def _update_status_labels(self, r):
+        self.rpm_sparkline.add_value(r.fan_rpm)
         self.lbl_path.setText(self._device.path if self._device else "…")
         self.lbl_rpm.setText(f"{r.fan_rpm} U/min (raw={r.fan_speed_raw})")
         self.lbl_power.setText("AN" if r.power_on else "AUS")

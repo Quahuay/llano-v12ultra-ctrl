@@ -2,7 +2,12 @@
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
-![Platform: Linux](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+![Platform: Linux only](https://img.shields.io/badge/platform-Linux%20only-lightgrey.svg)
+
+> Läuft nur unter Linux, auch wenn der Code in Python geschrieben ist: die Gerätesteuerung nutzt
+> `/dev/hidraw*`-ioctls, der Automatikmodus nutzt `systemd --user` und `/sys/class/hwmon` für
+> Temperatursensoren. Das sind alles Linux-spezifische Mechanismen ohne Windows-/macOS-Äquivalent
+> in diesem Projekt.
 
 Natives Linux-Steuerungstool für das **llano V12 Pro** RGB-Laptop-Kühlpad (Holtek USB-HID
 `374a:b101`), dessen offizielle Windows-Software **Myth.Cool** ist. Statt die Windows-App unter
@@ -17,6 +22,7 @@ der Original-App und durch systematische Live-Tests am physischen Gerät.
 - [Installation](#installation)
 - [Nutzung](#nutzung)
 - [Automatikmodus (Temperatur-Indikator)](#automatikmodus-temperatur-indikator)
+- [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)
 - [Protokoll-Dokumentation](#protokoll-dokumentation)
 - [Beitragen](#beitragen)
 - [Autoren](#autoren)
@@ -28,11 +34,19 @@ der Original-App und durch systematische Live-Tests am physischen Gerät.
   komplett ein-/ausschalten, Live-Telemetrie beobachten
 - **GUI** (`v12pro-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive Live-Status-Anzeige
   und Steuerung des Automatik-Dienstes
-- **Automatikmodus**: RGB-Farbe schaltet abhängig von CPU-/GPU-Temperatur um (visueller
-  Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
+- **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
+  (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
+- **RPM-Verlauf** in der GUI (kleine Live-Sparkline der letzten ~2 Minuten Lüfterdrehzahl)
+- **Lüfter-Erinnerung**: Desktop-Benachrichtigung, wenn die CPU heiß ist, aber die gemessene
+  Drehzahl niedrig bleibt. Ersatz für einen echten Regelkreis, da die Drehzahl nicht per Software
+  setzbar ist (siehe [Hardware-Hintergrund](#hardware-hintergrund))
+- **CSV-Verlaufsprotokoll** (Temperatur/RPM/Farbe über Zeit), opt-in, für spätere Auswertung
+- **Kritisch-heiß-Alarm**: hohe Temperatur-Schwellen können statt nur einer anderen Farbe auch
+  einen auffälligeren Effekt setzen (z.B. `chase`/Lauflicht)
 - Keine externen HID-Bibliotheken nötig: direkte `HIDIOCGFEATURE`/`HIDIOCSFEATURE`-ioctls auf
   `/dev/hidraw*`
-- Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/v12pro_ctrl/protocol.py))
+- Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/v12pro_ctrl/protocol.py)),
+  inklusive Diagnose-Befehl für den rohen 64-Byte Input-Report (`v12pro-ctrl raw-input`)
 
 ## Hardware-Hintergrund
 
@@ -41,6 +55,11 @@ Hardware/Firmware-Grenze, keine Einschränkung dieses Tools. Die Drehzahl bleibt
 über das physische Rad am Pad einstellbar; `v12pro-ctrl` liest sie nur aus (Live-Telemetrie).
 Software-seitig steuerbar sind: RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit,
 Helligkeit, sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht).
+
+Da die Drehzahl selbst nicht regelbar ist, bietet `v12pro-ctrl` stattdessen zwei indirekte
+Werkzeuge rund um diese Grenze an (siehe [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)):
+eine Desktop-Erinnerung, das Rad manuell hochzudrehen, und ein optionales Verlaufsprotokoll, um im
+Nachhinein die passende Radstellung für typische Lasten zu finden.
 
 ## Installation
 
@@ -101,6 +120,7 @@ v12pro-ctrl light --brightness 128                       # nur Helligkeit änder
 v12pro-ctrl light --off                                  # Beleuchtung aus (Lüfter läuft weiter)
 v12pro-ctrl power off                                    # gesamte Einheit aus (Lüfter + Licht)
 v12pro-ctrl monitor                                       # Live-Telemetrie laufend anzeigen
+v12pro-ctrl raw-input                                      # rohen 64-Byte Input-Report beobachten (Diagnose)
 v12pro-ctrl-gui                                           # grafische Oberfläche starten
 ```
 
@@ -135,11 +155,35 @@ Die GUI zeigt den Auto-Modus-Status an und kann den Dienst für die laufende Sit
 pausieren/fortsetzen (`systemctl --user stop/start`). Der Dienst bleibt dabei `enabled` und läuft
 nach dem nächsten Login/Neustart normal weiter.
 
+## Lüfter-Erinnerung & Verlaufsprotokoll
+
+Beide Optionen leben im `auto`-Modus (siehe oben) und sind standardmäßig deaktiviert. Aktivierung
+in `~/.config/v12pro-ctrl/config.toml`, siehe kommentierte Beispiele in
+[`config/config.example.toml`](config/config.example.toml).
+
+**Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
+(`notify-send`), wenn die CPU-Temperatur `temp_c` erreicht, die gemessene Drehzahl aber unter
+`min_rpm` bleibt. `cooldown_s` verhindert wiederholte Benachrichtigungen, solange die Bedingung
+anhält. Das ist der einzig mögliche indirekte "Regelkreis", da die Drehzahl selbst nicht per
+Software gesetzt werden kann. Die Erinnerung richtet sich an den Menschen am physischen Rad.
+
+**Verlaufsprotokoll** (`[auto.log]`): schreibt bei aktivem `auto`-Modus fortlaufend eine
+CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an den konfigurierten
+`path`. Nützlich, um im Nachhinein zu sehen, welche Radstellung bei welcher Last tatsächlich
+ausreichend Kühlung liefert.
+
 ## Protokoll-Dokumentation
 
 Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
 Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
 Docstring in [`src/v12pro_ctrl/protocol.py`](src/v12pro_ctrl/protocol.py).
+
+Neben dem Feature-Report existiert laut HID-Report-Descriptor auch ein 64-Byte Output- und
+Input-Report. Beide wurden bereits getestet, bisher ohne bekannten inhaltsabhängigen Effekt
+(vermutlich ungenutztes Boilerplate der Holtek-Referenzvorlage). `v12pro-ctrl raw-input` erlaubt
+weiteres manuelles Beobachten des Input-Reports. Bewusst **nicht** implementiert: automatisiertes
+Schreiben/Fuzzing des Output-Reports. Blindes Ausprobieren von undokumentierten Report-Bytes ohne
+konkrete Hypothese ist ein unnötiges Risiko für unerwartetes Geräteverhalten auf echter Hardware.
 
 ## Beitragen
 

@@ -4,6 +4,8 @@ import time
 
 from . import config as config_mod
 from . import device as device_mod
+from . import history as history_mod
+from . import notify as notify_mod
 from . import protocol
 from . import temp as temp_mod
 
@@ -79,6 +81,25 @@ def cmd_monitor(args):
     return 0
 
 
+def cmd_raw_input(args):
+    print(
+        "Beobachte rohen 64-Byte Input-Report (Strg+C zum Beenden).\n"
+        "Diagnose-Befehl: laut bisheriger Analyse (siehe protocol.py) ohne "
+        "bekannten inhaltsabhängigen Effekt/Bedeutung - rein zum manuellen "
+        "Explorieren, es wird nichts geschrieben."
+    )
+    with device_mod.Device() as dev:
+        try:
+            while True:
+                raw = dev.read_input_report(timeout_s=args.timeout)
+                if raw is not None:
+                    ts = time.strftime("%H:%M:%S")
+                    print(f"[{ts}] {raw.hex(' ')}", flush=True)
+        except KeyboardInterrupt:
+            pass
+    return 0
+
+
 def cmd_auto(args):
     cfg = config_mod.load_config(args.config)
     auto_cfg = cfg["auto"]
@@ -101,24 +122,44 @@ def cmd_auto(args):
             f"-> color={gpu_cfg['color']} effect={gpu_cfg['effect']} (nur wenn GPU >= CPU, 'wer wärmer ist gewinnt')"
         )
 
+    fan_cfg = auto_cfg.get("fan_reminder", {})
+    fan_reminder_enabled = fan_cfg.get("enabled", False)
+    if fan_reminder_enabled:
+        print(
+            f"Lüfter-Erinnerung: ab {fan_cfg['temp_c']}°C wenn Drehzahl < {fan_cfg['min_rpm']} U/min "
+            f"(Cooldown {fan_cfg.get('cooldown_s', 300)}s) - die Software kann die Drehzahl nicht selbst "
+            "setzen, nur ans Rad-Hochdrehen erinnern."
+        )
+
+    log_cfg = auto_cfg.get("log", {})
+    logger = history_mod.HistoryLogger(log_cfg["path"]) if log_cfg.get("enabled", False) else None
+    if logger:
+        print(f"Verlaufsprotokoll: {logger.path}")
+
     current_color = None
     current_effect = 0
     gpu_alert_active = False
+    last_reminder_ts = 0.0
     try:
         with device_mod.Device() as dev:
             while True:
                 t = temp_mod.read_temp_c(sensor_path)
                 gpu_t = temp_mod.read_gpu_temp_c() if gpu_enabled else None
+                report = dev.get_report()  # v.a. für die Live-Lüftertelemetrie (fan_rpm)
 
-                cpu_color = current_color
+                cpu_color, cpu_effect, cpu_speed = current_color, current_effect, 0
                 if t is not None:
                     cpu_color = thresholds[0]["color"]
+                    cpu_effect = thresholds[0].get("effect", 0)
+                    cpu_speed = thresholds[0].get("speed", 0)
                     for th in thresholds:
                         limit = th["temp_c"]
                         if current_color is not None and th["color"] < current_color:
                             limit -= hysteresis
                         if t >= limit:
                             cpu_color = th["color"]
+                            cpu_effect = th.get("effect", 0)
+                            cpu_speed = th.get("speed", 0)
 
                 if gpu_enabled and gpu_t is not None:
                     if not gpu_alert_active and gpu_t >= gpu_cfg["temp_c"]:
@@ -130,18 +171,35 @@ def cmd_auto(args):
                 # UND die GPU mindestens so heiß wie die CPU ist - sonst
                 # gewinnt weiterhin die normale CPU-Farblogik.
                 if gpu_alert_active and gpu_t is not None and (t is None or gpu_t >= t):
-                    target_color, target_effect = gpu_cfg["color"], gpu_cfg["effect"]
+                    target_color, target_effect, target_speed = gpu_cfg["color"], gpu_cfg["effect"], gpu_cfg.get("speed", 0)
                 else:
-                    target_color, target_effect = cpu_color, 0
+                    target_color, target_effect, target_speed = cpu_color, cpu_effect, cpu_speed
 
                 if target_color is not None and (target_color, target_effect) != (current_color, current_effect):
-                    speed = gpu_cfg.get("speed", 0) if target_effect else 0
-                    r = dev.set_light(color=target_color, effect=target_effect, speed=speed, power=True)
+                    r = dev.set_light(color=target_color, effect=target_effect, speed=target_speed, power=True)
                     ts = time.strftime("%H:%M:%S")
                     gpu_info = f"  GPU={gpu_t:.1f}°C" if gpu_t is not None else ""
                     cpu_info = f"{t:.1f}°C" if t is not None else "?"
                     print(f"[{ts}] CPU={cpu_info}{gpu_info} -> {r.color_name()} [{r.effect_name()}]", flush=True)
                     current_color, current_effect = target_color, target_effect
+
+                # Erinnerung: CPU heiß, aber gemessene Drehzahl (Rad-Telemetrie,
+                # nicht per Software steuerbar) bleibt niedrig - einzig
+                # möglicher "Regelkreis" ist hier der Mensch am physischen Rad.
+                if fan_reminder_enabled and t is not None and t >= fan_cfg["temp_c"] and report.fan_rpm < fan_cfg["min_rpm"]:
+                    now = time.time()
+                    if now - last_reminder_ts >= fan_cfg.get("cooldown_s", 300):
+                        notify_mod.send(
+                            "v12pro-ctrl: Lüfter zu langsam",
+                            f"CPU {t:.0f}°C, aber nur {report.fan_rpm} U/min. Rad am Pad manuell hochdrehen?",
+                            urgency="critical",
+                        )
+                        last_reminder_ts = now
+
+                if logger:
+                    log_color = current_color if current_color is not None else report.color
+                    log_effect = current_effect
+                    logger.log(t, gpu_t, report.fan_rpm, log_color, log_effect)
 
                 time.sleep(interval)
     except KeyboardInterrupt:
@@ -171,6 +229,10 @@ def build_parser():
     p_monitor = sub.add_parser("monitor", help="Live-Telemetrie laufend anzeigen")
     p_monitor.add_argument("--interval", type=float, default=0.3, help="Poll-Intervall in Sekunden (default 0.3)")
     p_monitor.set_defaults(func=cmd_monitor)
+
+    p_raw_input = sub.add_parser("raw-input", help="Rohen 64-Byte Input-Report beobachten (Diagnose/Exploration, nur Lesen)")
+    p_raw_input.add_argument("--timeout", type=float, default=0.2, help="Timeout pro Lesevorgang in Sekunden (default 0.2)")
+    p_raw_input.set_defaults(func=cmd_raw_input)
 
     p_auto = sub.add_parser("auto", help="Temperaturbasierten Auto-Farb-Daemon starten (visueller Temperatur-Indikator)")
     p_auto.add_argument("--config", default=None, help="Pfad zur config.toml (default ~/.config/v12pro-ctrl/config.toml)")

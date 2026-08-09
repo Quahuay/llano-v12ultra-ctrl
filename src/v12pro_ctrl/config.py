@@ -10,11 +10,16 @@ DEFAULT_CONFIG = {
         "temp_sensor": None,  # None = automatisch erkennen (coretemp/k10temp)
         "poll_interval_s": 5,
         # Schwellen aufsteigend sortiert: ab dieser Temperatur (°C) wird
-        # der zugehörige fan_mode-Wert gesetzt.
+        # der zugehörige color/effect/speed-Wert gesetzt. effect/speed sind
+        # optional (Default: 0=solid, 0=schnell) - eine hohe Schwelle kann
+        # z.B. effect=3 (chase) statt nur eine andere Farbe setzen, um bei
+        # kritischer Temperatur deutlicher aufzufallen als ein reiner
+        # Farbwechsel.
         "thresholds": [
-            {"temp_c": 0, "color": 2},   # grün = kühl
-            {"temp_c": 55, "color": 4},  # orange = warm
-            {"temp_c": 70, "color": 0},  # rot = heiß
+            {"temp_c": 0, "color": 2},                       # grün = kühl
+            {"temp_c": 55, "color": 4},                      # orange = warm
+            {"temp_c": 70, "color": 0},                      # rot = heiß
+            {"temp_c": 85, "color": 0, "effect": 3, "speed": 0},  # kritisch: rot + Lauflicht
         ],
         # Hysterese in °C, verhindert schnelles Hin-und-Herschalten an der
         # Schwelle.
@@ -31,6 +36,24 @@ DEFAULT_CONFIG = {
             "effect": 1,  # breathing
             "speed": 0,   # 0=schnell (offizieller Bereich 0-3)
         },
+        # Erinnerungs-Benachrichtigung (notify-send): die Software kann die
+        # Lüfterdrehzahl NICHT setzen (Hardware-Grenze, nur das physische
+        # Rad regelt sie). Als Ersatz für einen echten Regelkreis erinnert
+        # dieser Alarm den Menschen, das Rad manuell hochzudrehen, wenn die
+        # CPU heiß ist, aber die gemessene Drehzahl niedrig bleibt.
+        "fan_reminder": {
+            "enabled": False,
+            "temp_c": 75,
+            "min_rpm": 1500,
+            "cooldown_s": 300,
+        },
+        # CSV-Verlaufsprotokoll (Zeitstempel/Temperaturen/RPM/Farbe/Effekt),
+        # nützlich um im Nachhinein eine passende Radstellung für typische
+        # Lasten zu finden. Standardmäßig deaktiviert (opt-in).
+        "log": {
+            "enabled": False,
+            "path": "~/.local/share/v12pro-ctrl/history.csv",
+        },
     }
 }
 
@@ -38,8 +61,10 @@ DEFAULT_CONFIG = {
 def load_config(path=None):
     path = path or DEFAULT_CONFIG_PATH
     cfg = {"auto": dict(DEFAULT_CONFIG["auto"])}
-    cfg["auto"]["thresholds"] = list(DEFAULT_CONFIG["auto"]["thresholds"])
+    cfg["auto"]["thresholds"] = [dict(t) for t in DEFAULT_CONFIG["auto"]["thresholds"]]
     cfg["auto"]["gpu_alert"] = dict(DEFAULT_CONFIG["auto"]["gpu_alert"])
+    cfg["auto"]["fan_reminder"] = dict(DEFAULT_CONFIG["auto"]["fan_reminder"])
+    cfg["auto"]["log"] = dict(DEFAULT_CONFIG["auto"]["log"])
     if os.path.exists(path):
         with open(path, "rb") as f:
             user_cfg = tomllib.load(f)

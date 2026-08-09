@@ -10,11 +10,14 @@ import ctypes
 import fcntl
 import glob
 import os
+import select
 
 from . import protocol
 
 VID = "374A"
 PID = "B101"
+
+INPUT_REPORT_LEN = 64  # laut HID-Report-Descriptor, siehe protocol.py
 
 
 class DeviceNotFoundError(RuntimeError):
@@ -87,6 +90,24 @@ class Device:
         buf = ctypes.create_string_buffer(report, protocol.REPORT_LEN)
         fcntl.ioctl(self._fd, _hidiocsfeature(protocol.REPORT_LEN), buf, True)
         return self.get_report()
+
+    def read_input_report(self, timeout_s: float = 0.2):
+        """Liest (nicht-blockierend, mit Timeout) den rohen 64-Byte
+        Input-Report, falls das Gerät gerade einen sendet.
+
+        Rein zur Beobachtung/Diagnose (z.B. `v12pro-ctrl raw-input`) - laut
+        bisherigen Tests ohne bekannten inhaltsabhängigen Effekt und ohne
+        bekannte Bedeutung (siehe protocol.py, Abschnitt zu den 64-Byte
+        Input-/Output-Reports). Es wird bewusst NICHT auf den 64-Byte
+        Output-Report geschrieben - blindes Fuzzing von undokumentierten
+        Report-Bytes auf echter Hardware ohne konkrete Hypothese ist ein
+        unnötiges Risiko für unerwartetes Geräteverhalten.
+
+        Gibt None zurück, wenn innerhalb des Timeouts nichts ankommt."""
+        ready, _, _ = select.select([self._fd], [], [], timeout_s)
+        if not ready:
+            return None
+        return os.read(self._fd, INPUT_REPORT_LEN)
 
     def set_power(self, power: bool) -> protocol.Report:
         """Schaltet die GESAMTE Einheit (Lüfter + Licht) per kill_flag
