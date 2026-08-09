@@ -26,7 +26,7 @@ POLL_INTERVAL_MS = 300  # wie cmd_monitor-Default (--interval 0.3)
 RECONNECT_PROBE_MS = 2000  # langsamere Probe, solange kein Gerät gefunden wird
 SERVICE_POLL_MS = 2000  # systemctl-Aufrufe sind teurer als ioctls, seltener pollen
 
-SPEED_LABELS = {0: "0 (schnell)", 1: "1 (mittel)", 2: "2 (langsam)", 3: "3 (langsam)"}
+SPEED_LABELS = {0: "0 (schnell)", 1: "1 (mittel)", 2: "2 (langsam)", 3: "3 (sehr langsam)"}
 
 
 class MainWindow(QMainWindow):
