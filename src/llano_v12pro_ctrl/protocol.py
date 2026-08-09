@@ -185,6 +185,33 @@ nie benutzt, ist die wahrscheinlichste Erklärung ungenutztes
 Boilerplate aus der Holtek-Referenzvorlage. Nicht erschöpfend getestet
 (64 Bytes x 256 Werte ist nicht vollständig durchprobierbar) - also keine
 100%ige Sicherheit, aber gut belegte Einschätzung.
+
+NACHTRAG (gezielt zur Frage "kann man die Lüfterdrehzahl doch irgendwie
+setzen?"): Live gegen echte Hardware zwei weitere, konkret begründete
+Hypothesen getestet (device.py: write_output_report()), jeweils mit
+Beobachtung von RPM-Anzeige/Displaywert am physischen Gerät durch den
+Nutzer:
+  1. Das komplette bekannte 8-Byte Feature-Report-Layout (aktuelle Farbe/
+     Effekt/Speed/Helligkeit/Power) auf 64 Byte gepolstert auf den
+     Output-Report geschrieben - Idee: manche Hersteller nutzen dasselbe
+     Kommando-Layout über mehrere Report-Typen hinweg.
+  2. Ein Byte aus dem gültigen fan_speed_raw-Wertebereich (hier: 100, das
+     höchste Ende der Skala) einzeln an Position 1 und an Position 2
+     geschrieben - Idee: symmetrisches Input/Output-Paar zur
+     Telemetrie-Position im Feature-Report.
+Beide ohne jede Wirkung: weder RPM-Wert im zurückgelesenen Feature-Report
+verändert noch vom Nutzer am Display/Lüftergeräusch wahrnehmbar. Zusätzlich
+wurde der komplette HID-Report-Descriptor ausgelesen (sysfs
+`report_descriptor`) und bestätigt exakt 3 Reports ohne weitere
+Report-IDs: 64-Byte Input, 64-Byte Output, 8-Byte Feature - keine
+versteckte vierte Schnittstelle. Erhärtet die Einschätzung "Lüfterdrehzahl
+ist eine reine Hardware-Grenze" weiter, macht sie aber weiterhin nicht zu
+100% beweisbar (Wertebereich nicht erschöpfend durchprobiert). Vermutung:
+das Einstellrad ist vermutlich ein rein analoges Poti/Rheostat direkt im
+Lüfter-Stromkreis, der Holtek-Chip liest dessen Stellung nur für die
+Telemetrie/Anzeige aus, hat aber keinen Aktuator, den er ansteuern könnte -
+das würde erklären, warum keine der drei HID-Schnittstellen einen
+Schreibpfad dafür hat.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum

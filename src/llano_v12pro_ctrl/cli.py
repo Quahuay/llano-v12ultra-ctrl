@@ -192,7 +192,6 @@ def cmd_auto(args):
                         notify_mod.send(
                             "llano-v12pro-ctrl: Lüfter zu langsam",
                             f"CPU {t:.0f}°C, aber nur {report.fan_rpm} U/min. Rad am Pad manuell hochdrehen?",
-                            urgency="critical",
                         )
                         last_reminder_ts = now
 

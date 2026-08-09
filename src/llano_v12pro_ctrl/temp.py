@@ -1,19 +1,33 @@
 """CPU-/GPU-Temperatur-Erkennung für den Auto-Modus.
 
-CPU: sucht automatisch den passenden hwmon-Sensor (coretemp "Package id 0"
+Linux: sucht automatisch den passenden hwmon-Sensor (coretemp "Package id 0"
 bei Intel, k10temp "Tctl"/"Tdie" bei AMD) statt einen festen hwmon-Index
 anzunehmen - der Index kann sich je nach Kernel/Boot-Reihenfolge ändern.
+Live gegen echte Hardware getestet.
+
+Windows: KEIN hwmon-Äquivalent vorhanden, CPU-Paket-Temperatur ist ohne
+Kernel-Treiber nicht auslesbar. Anbindung an LibreHardwareMonitor
+(https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) über dessen
+WMI-Namespace `root\\LibreHardwareMonitor` - Voraussetzung: LibreHardwareMonitor
+läuft und hat WMI-Export aktiviert (Standard). Analoges Muster zu
+`read_gpu_temp_c()` unten: externe Abhängigkeit, einmalige Warnung bei
+Nichtverfügbarkeit statt Absturz. **UNGETESTET** - keine Windows-Maschine in
+dieser Entwicklungsumgebung verfügbar, nur code-seitig vorbereitet.
 
 GPU: es gibt auf NVIDIA-Systemen keinen passenden hwmon-Eintrag für die
-GPU-Temperatur (nur CPU/NVMe/Akku etc.), daher über `nvidia-smi` gelesen.
+GPU-Temperatur (nur CPU/NVMe/Akku etc.), daher über `nvidia-smi` gelesen -
+funktioniert plattformunabhängig, da `nvidia-smi` auch unter Windows
+existiert (Teil des NVIDIA-Treibers), hier aber nur unter Linux getestet.
 """
 
 import glob
 import subprocess
-
+import sys
 
 PREFERRED_LABELS = ("package id 0", "tctl", "tdie")
 PREFERRED_CHIPS = ("coretemp", "k10temp")
+
+WINDOWS_SENSOR_SOURCE = "librehardwaremonitor"  # Sentinel-Rückgabewert von find_cpu_temp_input() unter Windows
 
 
 def _read(path):
@@ -24,9 +38,7 @@ def _read(path):
         return None
 
 
-def find_cpu_temp_input():
-    """Gibt den Pfad zu einer temp*_input-Datei für die CPU-Paket-Temperatur
-    zurück, oder None wenn nichts Passendes gefunden wurde."""
+def _find_cpu_temp_input_linux():
     candidates = []
     for chip_dir in glob.glob("/sys/class/hwmon/hwmon*"):
         name = _read(f"{chip_dir}/name")
@@ -45,8 +57,62 @@ def find_cpu_temp_input():
     return candidates[0] if candidates else None
 
 
-def read_temp_c(path):
-    raw = _read(path)
+_windows_wmi_warned = False
+
+
+def _find_cpu_temp_input_windows():
+    """Prüft, ob LibreHardwareMonitor per WMI erreichbar ist. UNGETESTET."""
+    global _windows_wmi_warned
+    try:
+        import wmi
+
+        w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
+        sensors = w.Sensor()
+        if any(s.SensorType == "Temperature" for s in sensors):
+            return WINDOWS_SENSOR_SOURCE
+        return None
+    except Exception as e:
+        if not _windows_wmi_warned:
+            print(
+                f"Hinweis: LibreHardwareMonitor per WMI nicht erreichbar ({e}). "
+                "CPU-Temperatur-Erkennung unter Windows benötigt LibreHardwareMonitor "
+                "(muss laufen, WMI-Export aktiviert - Standardeinstellung)."
+            )
+            _windows_wmi_warned = True
+        return None
+
+
+def find_cpu_temp_input():
+    """Gibt eine Sensor-Quelle für die CPU-Paket-Temperatur zurück (Linux:
+    Pfad zu einer temp*_input-Datei; Windows: Sentinel-String für
+    LibreHardwareMonitor), oder None wenn nichts Passendes gefunden wurde."""
+    if sys.platform == "win32":
+        return _find_cpu_temp_input_windows()
+    return _find_cpu_temp_input_linux()
+
+
+def _read_temp_c_windows(source):
+    """UNGETESTET - siehe Modul-Docstring."""
+    try:
+        import wmi
+
+        w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
+        for s in w.Sensor():
+            if s.SensorType == "Temperature" and "cpu package" in s.Name.lower():
+                return float(s.Value)
+        # Fallback: erster verfügbare CPU-Temperatursensor, falls "Package" nicht existiert
+        for s in w.Sensor():
+            if s.SensorType == "Temperature" and "cpu" in s.Name.lower():
+                return float(s.Value)
+        return None
+    except Exception:
+        return None
+
+
+def read_temp_c(source):
+    if sys.platform == "win32":
+        return _read_temp_c_windows(source)
+    raw = _read(source)
     if raw is None:
         return None
     try:

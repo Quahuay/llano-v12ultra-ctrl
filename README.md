@@ -2,12 +2,13 @@
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
-![Platform: Linux only](https://img.shields.io/badge/platform-Linux%20only-lightgrey.svg)
+![Platform: Linux getestet, Windows in Arbeit](https://img.shields.io/badge/platform-Linux%20(getestet)%20%2F%20Windows%20(in%20Arbeit)-lightgrey.svg)
 
-> Läuft nur unter Linux, auch wenn der Code in Python geschrieben ist: die Gerätesteuerung nutzt
-> `/dev/hidraw*`-ioctls, der Automatikmodus nutzt `systemd --user` und `/sys/class/hwmon` für
-> Temperatursensoren. Das sind alles Linux-spezifische Mechanismen ohne Windows-/macOS-Äquivalent
-> in diesem Projekt.
+> **Vollständig getestet nur unter Linux.** Eine Windows-Portierung ist in Arbeit (siehe
+> [Windows-Status](#windows-status)) - Temperatursensoren und Hintergrunddienst-Steuerung sind
+> bereits code-seitig vorbereitet (aber ungetestet, keine Windows-Maschine verfügbar), die
+> eigentliche Geräteansteuerung (`device.py`) läuft aktuell noch ausschließlich über
+> Linux-spezifische `/dev/hidraw*`-ioctls.
 
 Natives Linux-Steuerungstool für das **llano V12 Pro** RGB-Laptop-Kühlpad (Holtek USB-HID
 `374a:b101`), dessen offizielle Windows-Software **Myth.Cool** ist. Statt die Windows-App unter
@@ -23,6 +24,7 @@ der Original-App und durch systematische Live-Tests am physischen Gerät.
 - [Nutzung](#nutzung)
 - [Automatikmodus (Temperatur-Indikator)](#automatikmodus-temperatur-indikator)
 - [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)
+- [Windows-Status](#windows-status)
 - [Protokoll-Dokumentation](#protokoll-dokumentation)
 - [Beitragen](#beitragen)
 - [Autoren](#autoren)
@@ -172,18 +174,43 @@ CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an 
 `path`. Nützlich, um im Nachhinein zu sehen, welche Radstellung bei welcher Last tatsächlich
 ausreichend Kühlung liefert.
 
+## Windows-Status
+
+Eine Windows-Portierung ist in Arbeit. Architektur-Entscheidung: Python bleibt die Sprache (kein
+Java-Rewrite), da sowohl `hidapi` (Python) als auch `hid4java` (Java) nur Wrapper um dieselbe
+native `hidapi`-C-Bibliothek sind - der HID-Transport wäre in beiden Sprachen gleich gut
+cross-platform, ein Java-Rewrite würde aber ~95% bereits fertigen und getesteten Code (Protokoll,
+CLI, GUI, Config) wegwerfen, ohne die eigentlichen OS-spezifischen Baustellen (Temperatursensoren,
+Hintergrunddienst, Notifications) zu lösen.
+
+| Datei | Status |
+|---|---|
+| `notify.py` | ✅ Auf `plyer` umgestellt (cross-platform), live unter Linux getestet |
+| `temp.py` | ✅ Windows-Zweig für CPU-Temperatur über LibreHardwareMonitor/WMI ergänzt, **ungetestet** |
+| `gui/service_control.py` | ✅ Windows-Zweig über `schtasks` (geplante Aufgabe) ergänzt, **ungetestet** |
+| `device.py` | ⏳ Noch offen. Ein erster Versuch, auf die cross-platform `hid`-Bibliothek umzusteigen, hat bei einem Testlauf einen USB-Rebind-Vorfall am echten Pad ausgelöst (vermutlich durch gleichzeitige Schreibzugriffe von zwei Prozessen, nicht zwingend ein hidapi-spezifisches Problem) - zurückgestellt, bis das sauber und ohne Risiko für die Hardware nachvollzogen werden kann |
+
+Für alle drei Windows-Zweige gilt: keine Windows-Maschine in der Entwicklungsumgebung verfügbar,
+daher ausschließlich code-seitig vorbereitet, nicht praktisch verifiziert. Rückmeldungen von
+Windows-Nutzern sind ausdrücklich willkommen (siehe [Beitragen](#beitragen)).
+
 ## Protokoll-Dokumentation
 
 Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
 Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
 Docstring in [`src/llano_v12pro_ctrl/protocol.py`](src/llano_v12pro_ctrl/protocol.py).
 
-Neben dem Feature-Report existiert laut HID-Report-Descriptor auch ein 64-Byte Output- und
-Input-Report. Beide wurden bereits getestet, bisher ohne bekannten inhaltsabhängigen Effekt
-(vermutlich ungenutztes Boilerplate der Holtek-Referenzvorlage). `llano-v12pro-ctrl raw-input` erlaubt
-weiteres manuelles Beobachten des Input-Reports. Bewusst **nicht** implementiert: automatisiertes
-Schreiben/Fuzzing des Output-Reports. Blindes Ausprobieren von undokumentierten Report-Bytes ohne
-konkrete Hypothese ist ein unnötiges Risiko für unerwartetes Geräteverhalten auf echter Hardware.
+Der komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei
+Reports, keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature
+(letzterer vollständig reverse-engineered). Speziell zur Frage "kann man die Lüfterdrehzahl doch
+irgendwie setzen?" wurden zusätzlich gezielt zwei Hypothesen live gegen den Output-Report getestet
+(bekanntes Feature-Layout gespiegelt; ein Byte aus dem RPM-Wertebereich einzeln an zwei Positionen) -
+beide ohne jede Wirkung, siehe Nachtrag in
+[`protocol.py`](src/llano_v12pro_ctrl/protocol.py). `llano-v12pro-ctrl raw-input` erlaubt weiteres
+manuelles Beobachten des Input-Reports. Bewusst **nicht** implementiert: automatisiertes
+Schreiben/Fuzzing über den gesamten 64-Byte-Wertebereich. Blindes Ausprobieren von undokumentierten
+Report-Bytes ohne konkrete Hypothese ist ein unnötiges Risiko für unerwartetes Geräteverhalten auf
+echter Hardware.
 
 ## Beitragen
 
