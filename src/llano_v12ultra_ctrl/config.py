@@ -1,9 +1,9 @@
-"""Config-Handling für llano-v12pro-ctrl (~/.config/llano-v12pro-ctrl/config.toml)."""
+"""Config-Handling für llano-v12ultra-ctrl (~/.config/llano-v12ultra-ctrl/config.toml)."""
 
 import os
 import tomllib
 
-DEFAULT_CONFIG_PATH = os.path.expanduser("~/.config/llano-v12pro-ctrl/config.toml")
+DEFAULT_CONFIG_PATH = os.path.expanduser("~/.config/llano-v12ultra-ctrl/config.toml")
 
 DEFAULT_CONFIG = {
     "auto": {
@@ -52,7 +52,7 @@ DEFAULT_CONFIG = {
         # Lasten zu finden. Standardmäßig deaktiviert (opt-in).
         "log": {
             "enabled": False,
-            "path": "~/.local/share/llano-v12pro-ctrl/history.csv",
+            "path": "~/.local/share/llano-v12ultra-ctrl/history.csv",
         },
     }
 }

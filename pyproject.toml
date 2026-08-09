@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llano-v12pro-ctrl"
+name = "llano-v12ultra-ctrl"
 version = "0.1.0"
-description = "Native Linux-Steuerung für das llano V12 Pro USB-HID Kühlpad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6-GUI"
+description = "Native Linux-Steuerung für das llano V12 Ultra USB-HID Kühlpad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6-GUI"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -23,8 +23,8 @@ dependencies = [
 gui = ["PyQt6>=6.5"]
 
 [project.scripts]
-llano-v12pro-ctrl = "llano_v12pro_ctrl.cli:main"
-llano-v12pro-ctrl-gui = "llano_v12pro_ctrl.gui.app:main"
+llano-v12ultra-ctrl = "llano_v12ultra_ctrl.cli:main"
+llano-v12ultra-ctrl-gui = "llano_v12ultra_ctrl.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

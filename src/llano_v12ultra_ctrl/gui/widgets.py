@@ -1,4 +1,4 @@
-"""Leichte Zusatz-Widgets für die llano-v12pro-ctrl GUI.
+"""Leichte Zusatz-Widgets für die llano-v12ultra-ctrl GUI.
 
 Sparkline nutzt bewusst nur QPainter (kein zusätzliches Plotting-Package
 wie pyqtgraph/matplotlib nötig) - reicht für einen einfachen RPM-Verlauf."""

@@ -1,0 +1,12 @@
+[Unit]
+Description=llano-v12ultra-ctrl: temperaturbasierte Modus-Umschaltung für llano V12 Ultra
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/llano-v12ultra-ctrl auto
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

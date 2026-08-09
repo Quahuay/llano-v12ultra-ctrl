@@ -1,4 +1,4 @@
-"""Desktop-Benachrichtigungen für llano-v12pro-ctrl, cross-platform über
+"""Desktop-Benachrichtigungen für llano-v12ultra-ctrl, cross-platform über
 `plyer` (dispatcht selbst auf notify-send/Desktop-Portals unter Linux,
 Toast-Notifications unter Windows, NSUserNotificationCenter unter macOS -
 kein eigenes sys.platform-Verzweigen nötig).
@@ -20,7 +20,7 @@ unterstützt) - alle Benachrichtigungen laufen daher mit normaler
 Dringlichkeit, unabhängig vom früheren `urgency`-Argument dieser Funktion.
 """
 
-APP_NAME = "llano-v12pro-ctrl"
+APP_NAME = "llano-v12ultra-ctrl"
 
 _warned_missing = False
 

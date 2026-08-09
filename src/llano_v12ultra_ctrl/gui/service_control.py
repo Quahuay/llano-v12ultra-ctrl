@@ -1,8 +1,8 @@
 """Steuerung des Auto-Modus-Hintergrunddienstes aus der GUI heraus.
 
-Linux: systemd --user Unit `llano-v12pro-ctrl.service`. Live getestet.
+Linux: systemd --user Unit `llano-v12ultra-ctrl.service`. Live getestet.
 Windows: KEIN systemd-Äquivalent - stattdessen eine geplante Aufgabe
-(Scheduled Task, `schtasks`), die bei Anmeldung `llano-v12pro-ctrl auto`
+(Scheduled Task, `schtasks`), die bei Anmeldung `llano-v12ultra-ctrl auto`
 startet (siehe README für die Einrichtung, einfacher als ein echter
 Windows-Dienst, da kein Admin-Installer nötig ist). **UNGETESTET** - keine
 Windows-Maschine in dieser Entwicklungsumgebung verfügbar.
@@ -14,8 +14,8 @@ Die GUI schaltet den Daemon nur für die laufende Sitzung pausiert/fortgesetzt
 import subprocess
 import sys
 
-SERVICE_NAME = "llano-v12pro-ctrl.service"
-WINDOWS_TASK_NAME = "llano-v12pro-ctrl-auto"
+SERVICE_NAME = "llano-v12ultra-ctrl.service"
+WINDOWS_TASK_NAME = "llano-v12ultra-ctrl-auto"
 
 
 def _is_active_linux() -> bool:
