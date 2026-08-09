@@ -1,0 +1,193 @@
+import argparse
+import sys
+import time
+
+from . import config as config_mod
+from . import device as device_mod
+from . import protocol
+from . import temp as temp_mod
+
+
+def cmd_status(args):
+    with device_mod.Device() as dev:
+        r = dev.get_report()
+    print(f"Gerät:        {dev.path}")
+    print(f"Raw-Report:   {r.raw.hex(' ')}")
+    print(f"Checksum ok:  {r.checksum_ok}")
+    print(f"Gesamteinheit (Lüfter+Licht, per 'power'-Befehl):  {'AN' if r.power_on else 'AUS'}")
+    print(f"Lüfterdrehzahl (Rad, Stufe nicht per Software steuerbar): {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
+    print(f"Beleuchtung:  {'AN' if r.light_on else 'AUS'}")
+    print(f"Farbe:        {r.color}  [{r.color_name()}]")
+    print(f"Effekt:       {r.effect_raw}  [{r.effect_name()}]")
+    print(f"Geschwindigkeit: {r.speed}  (nicht monoton, siehe protocol.py für Details)")
+    print(f"Helligkeit:   {r.brightness}  (0=dunkel, 255=maximal hell)")
+    return 0
+
+
+def _resolve_choice(value, name_map, label):
+    if value in name_map:
+        return name_map[value]
+    try:
+        v = int(value)
+    except ValueError:
+        raise SystemExit(f"Ungültiger {label} '{value}'. Erlaubt: 0-4 oder {', '.join(name_map)}")
+    if not 0 <= v <= 4:
+        raise SystemExit(f"{label} muss zwischen 0 und 4 liegen")
+    return v
+
+
+def cmd_light(args):
+    with device_mod.Device() as dev:
+        if args.off:
+            r = dev.set_light(color=0, light_on=False)
+            print(f"Beleuchtung ausgeschaltet, Lüfter unbeeinflusst (raw={r.raw.hex(' ')})")
+            return 0
+        current = dev.get_report()
+        color = _resolve_choice(args.color, protocol.NAME_TO_COLOR, "Farbe") if args.color is not None else current.color
+        effect = _resolve_choice(args.effect, protocol.NAME_TO_EFFECT, "Effekt") if args.effect is not None else (current.effect_raw if current.light_on else 0)
+        speed = args.speed if args.speed is not None else current.speed
+        brightness = args.brightness if args.brightness is not None else current.brightness
+        r = dev.set_light(color=color, effect=effect, speed=speed, light_on=True, brightness=brightness)
+    print(f"Gesetzt: color={r.color} [{r.color_name()}]  effect={r.effect_raw} [{r.effect_name()}]  speed={r.speed}  brightness={r.brightness}  (raw={r.raw.hex(' ')})")
+    return 0
+
+
+def cmd_power(args):
+    with device_mod.Device() as dev:
+        r = dev.set_power(power=(args.state == "on"))
+    if r.power_on:
+        print(f"Gesamteinheit AN (Lüfter + Licht laufen wieder, raw={r.raw.hex(' ')})")
+    else:
+        print(f"Gesamteinheit AUS (Lüfter UND Licht komplett gestoppt, raw={r.raw.hex(' ')})")
+    return 0
+
+
+def cmd_monitor(args):
+    print("Beobachte Live-Telemetrie (Strg+C zum Beenden)...")
+    last = None
+    with device_mod.Device() as dev:
+        try:
+            while True:
+                r = dev.get_report()
+                if r.raw != last:
+                    ts = time.strftime("%H:%M:%S")
+                    print(f"[{ts}] {r.fan_rpm:4d} U/min  color={r.color} [{r.color_name()}]  effect={r.effect_raw} [{r.effect_name()}]  speed={r.speed}  raw={r.raw.hex(' ')}", flush=True)
+                    last = r.raw
+                time.sleep(args.interval)
+        except KeyboardInterrupt:
+            pass
+    return 0
+
+
+def cmd_auto(args):
+    cfg = config_mod.load_config(args.config)
+    auto_cfg = cfg["auto"]
+
+    sensor_path = auto_cfg.get("temp_sensor") or temp_mod.find_cpu_temp_input()
+    if not sensor_path:
+        print("Kein CPU-Temperatursensor gefunden (coretemp/k10temp). Abbruch.", file=sys.stderr)
+        return 1
+    print(f"Temperatursensor: {sensor_path}")
+
+    thresholds = sorted(auto_cfg["thresholds"], key=lambda t: t["temp_c"])
+    hysteresis = auto_cfg.get("hysteresis_c", 3)
+    interval = auto_cfg.get("poll_interval_s", 5)
+    gpu_cfg = auto_cfg.get("gpu_alert", {})
+    gpu_enabled = gpu_cfg.get("enabled", False)
+    print(f"Schwellen: {thresholds}  Hysterese: {hysteresis}°C  Intervall: {interval}s")
+    if gpu_enabled:
+        print(
+            f"GPU-Alarm: ab {gpu_cfg['temp_c']}°C (aus bei {gpu_cfg['temp_c'] - gpu_cfg['hysteresis_c']}°C) "
+            f"-> color={gpu_cfg['color']} effect={gpu_cfg['effect']} (nur wenn GPU >= CPU, 'wer wärmer ist gewinnt')"
+        )
+
+    current_color = None
+    current_effect = 0
+    gpu_alert_active = False
+    try:
+        with device_mod.Device() as dev:
+            while True:
+                t = temp_mod.read_temp_c(sensor_path)
+                gpu_t = temp_mod.read_gpu_temp_c() if gpu_enabled else None
+
+                cpu_color = current_color
+                if t is not None:
+                    cpu_color = thresholds[0]["color"]
+                    for th in thresholds:
+                        limit = th["temp_c"]
+                        if current_color is not None and th["color"] < current_color:
+                            limit -= hysteresis
+                        if t >= limit:
+                            cpu_color = th["color"]
+
+                if gpu_enabled and gpu_t is not None:
+                    if not gpu_alert_active and gpu_t >= gpu_cfg["temp_c"]:
+                        gpu_alert_active = True
+                    elif gpu_alert_active and gpu_t < gpu_cfg["temp_c"] - gpu_cfg["hysteresis_c"]:
+                        gpu_alert_active = False
+
+                # "wer wärmer ist gewinnt": GPU-Alarm nur, wenn er aktiv ist
+                # UND die GPU mindestens so heiß wie die CPU ist - sonst
+                # gewinnt weiterhin die normale CPU-Farblogik.
+                if gpu_alert_active and gpu_t is not None and (t is None or gpu_t >= t):
+                    target_color, target_effect = gpu_cfg["color"], gpu_cfg["effect"]
+                else:
+                    target_color, target_effect = cpu_color, 0
+
+                if target_color is not None and (target_color, target_effect) != (current_color, current_effect):
+                    speed = gpu_cfg.get("speed", 0) if target_effect else 0
+                    r = dev.set_light(color=target_color, effect=target_effect, speed=speed, power=True)
+                    ts = time.strftime("%H:%M:%S")
+                    gpu_info = f"  GPU={gpu_t:.1f}°C" if gpu_t is not None else ""
+                    cpu_info = f"{t:.1f}°C" if t is not None else "?"
+                    print(f"[{ts}] CPU={cpu_info}{gpu_info} -> {r.color_name()} [{r.effect_name()}]", flush=True)
+                    current_color, current_effect = target_color, target_effect
+
+                time.sleep(interval)
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="v12pro-ctrl", description="Steuerung für das llano V12 Pro Kühlpad (Myth.Cool / Holtek 374a:b101)")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    p_status = sub.add_parser("status", help="aktuellen Gerätezustand anzeigen (Farbe/Effekt/Geschwindigkeit + Live-Telemetrie)")
+    p_status.set_defaults(func=cmd_status)
+
+    p_light = sub.add_parser("light", help="Beleuchtung steuern (Farbe/Effekt/Geschwindigkeit/Aus)")
+    p_light.add_argument("--color", default=None, help="0-4 oder red/lightblue/green/purple/orange")
+    p_light.add_argument("--effect", default=None, help="0-4 oder solid/breathing/rainbow/chase/zones")
+    p_light.add_argument("--speed", type=int, default=None, help="0-3 offiziell genutzt (0=schnell..3=langsam). Werte 4-255 technisch möglich, aber von der Original-App nie validiert und nicht monoton (siehe protocol.py)")
+    p_light.add_argument("--brightness", type=int, default=None, help="0-255 (0=dunkel, 255=maximal hell)")
+    p_light.add_argument("--off", action="store_true", help="Beleuchtung ausschalten")
+    p_light.set_defaults(func=cmd_light)
+
+    p_power = sub.add_parser("power", help="Gesamte Einheit (Lüfter+Licht) komplett an/aus schalten - reiner Kill-Switch, keine Zwischenstufen")
+    p_power.add_argument("state", choices=["on", "off"])
+    p_power.set_defaults(func=cmd_power)
+
+    p_monitor = sub.add_parser("monitor", help="Live-Telemetrie laufend anzeigen")
+    p_monitor.add_argument("--interval", type=float, default=0.3, help="Poll-Intervall in Sekunden (default 0.3)")
+    p_monitor.set_defaults(func=cmd_monitor)
+
+    p_auto = sub.add_parser("auto", help="Temperaturbasierten Auto-Farb-Daemon starten (visueller Temperatur-Indikator)")
+    p_auto.add_argument("--config", default=None, help="Pfad zur config.toml (default ~/.config/v12pro-ctrl/config.toml)")
+    p_auto.set_defaults(func=cmd_auto)
+
+    return p
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return args.func(args)
+    except device_mod.DeviceNotFoundError as e:
+        print(f"Fehler: {e}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

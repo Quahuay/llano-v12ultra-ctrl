@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "v12pro-ctrl"
+version = "0.1.0"
+description = "Native Linux-Steuerung für das llano V12 Pro USB-HID Kühlpad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6-GUI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Quahuay" }]
+dependencies = []  # protocol.py/device.py/cli.py/config.py/temp.py sind bewusst stdlib-only
+
+[project.optional-dependencies]
+gui = ["PyQt6>=6.5"]
+
+[project.scripts]
+v12pro-ctrl = "v12pro_ctrl.cli:main"
+v12pro-ctrl-gui = "v12pro_ctrl.gui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

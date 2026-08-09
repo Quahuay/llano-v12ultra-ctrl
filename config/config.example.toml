@@ -1,0 +1,44 @@
+# Beispiel-Konfiguration für `v12pro-ctrl auto` (temperaturbasierte RGB-Farbumschaltung).
+# Nach ~/.config/v12pro-ctrl/config.toml kopieren und nach Bedarf anpassen.
+#
+# WICHTIG: Das Pad unterstützt KEINE stufenlose Software-Lüfterdrehzahl -
+# das ist eine Hardware/Firmware-Grenze, keine Einschränkung dieses Tools.
+# Die Lüfterdrehzahl bleibt ausschließlich über das physische Rad am Pad
+# steuerbar.
+#
+# "auto" schaltet stattdessen die RGB-Farbe (0=rot, 1=hellblau, 2=grün,
+# 3=lila, 4=orange) je nach CPU-Temperatur um - nützlich als visueller
+# Temperatur-Indikator direkt am Pad, nicht als Kühlungsregler. Zusätzlich
+# gibt es unten einen eigenen GPU-Temperatur-Alarm (lila + breathing-Effekt),
+# der die CPU-Farblogik bei Bedarf übersteuert.
+
+[auto]
+# null/auskommentiert = automatisch erkennen (coretemp "Package id 0" bzw. k10temp "Tctl"/"Tdie")
+# temp_sensor = "/sys/class/hwmon/hwmon10/temp1_input"
+poll_interval_s = 5
+hysteresis_c = 3
+
+[[auto.thresholds]]
+temp_c = 0
+color = 2   # grün = kühl
+
+[[auto.thresholds]]
+temp_c = 55
+color = 4   # orange = warm
+
+[[auto.thresholds]]
+temp_c = 70
+color = 0   # rot = heiß
+
+# GPU-Temperatur-Alarm: übersteuert die obige CPU-Farblogik mit lila
+# (color=3) + breathing (effect=1), sobald die GPU >= temp_c UND
+# mindestens so heiß wie die aktuelle CPU ist ("wer wärmer ist gewinnt").
+# Fällt die GPU-Temperatur unter (temp_c - hysteresis_c), springt der
+# Daemon wieder zur normalen CPU-Farblogik zurück. Quelle: nvidia-smi.
+[auto.gpu_alert]
+enabled = true
+temp_c = 87
+hysteresis_c = 5
+color = 3    # lila
+effect = 1   # breathing
+speed = 0    # 0=schnell (offizieller Bereich 0-3)
