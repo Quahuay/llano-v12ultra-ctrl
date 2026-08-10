@@ -100,7 +100,19 @@ def load_config(path=None):
         if "general" in user_cfg:
             cfg["general"].update(user_cfg["general"])
         if "auto" in user_cfg:
-            cfg["auto"].update(user_cfg["auto"])
+            user_auto = user_cfg["auto"]
+            cfg["auto"].update(user_auto)
+            # Sub-Sections im [auto]-Block sind TOML-Tables (dicts). Ein
+            # normales dict.update ersetzt das komplette Default-Dict des
+            # Sub-Sections - partial user configs würden alle restlichen
+            # Default-Keys verlieren. Stattdessen: jeden Sub-Section-Key
+            # einzeln mergen, falls es ein dict ist.
+            _SUB_KEYS = ("gpu_alert", "fan_reminder", "fan_curve", "log")
+            for key in _SUB_KEYS:
+                if key in user_auto and isinstance(user_auto[key], dict):
+                    cfg["auto"][key].update(user_auto[key])
+            if "fan_curve" in user_auto and isinstance(user_auto.get("fan_curve"), dict) and "points" in user_auto["fan_curve"]:
+                cfg["auto"]["fan_curve"]["points"] = user_auto["fan_curve"]["points"]
     return cfg
 
 
@@ -154,14 +166,10 @@ def sorted_points_for_save(points):
 
 
 def save_language(language, path=None):
-    """Schreibt (nur) den [general]-Abschnitt in die Config-Datei, nach
-    demselben Textersetzungs-Muster wie save_fan_curve - siehe dort für die
-    Begründung (tomllib kann nur lesen, der Rest der Datei bleibt
-    unverändert)."""
+    """Schreibt (nur) den language-Key im [general]-Abschnitt. Bestehende
+    [general]-Keys bleiben erhalten."""
     path = path or DEFAULT_CONFIG_PATH
     os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    block = f'[general]\nlanguage = "{language}"\n'
 
     existing = ""
     if os.path.exists(path):
@@ -172,13 +180,21 @@ def save_language(language, path=None):
         before, _, after = existing.partition("[general]")
         rest_lines = after.split("\n")
         cut = len(rest_lines)
+        new_block_lines = []
         for i, line in enumerate(rest_lines[1:], start=1):
             if line.startswith("["):
                 cut = i
                 break
+            stripped = line.strip()
+            if stripped.startswith("language") and "=" in stripped:
+                new_block_lines.append(f'language = "{language}"')
+            elif stripped:
+                new_block_lines.append(line)
+        new_block = "[general]\n" + "\n".join(new_block_lines) + "\n"
         after = "\n".join(rest_lines[cut:])
-        new_content = before + block + after
+        new_content = before + new_block + after
     else:
+        block = f'[general]\nlanguage = "{language}"\n'
         sep = "\n" if existing and not existing.endswith("\n") else ""
         new_content = existing + sep + ("\n" if existing else "") + block
 

@@ -78,6 +78,7 @@ _EN = {
 
     # --- cli: auto ---
     "cli.auto.no_sensor": "No CPU temperature sensor found (coretemp/k10temp). Aborting.",
+    "cli.auto.device_error": "Device error: {error}  (sleeping {interval}s)",
     "cli.auto.sensor": "Temperature sensor: {path}",
     "cli.auto.thresholds": "Thresholds: {thresholds}  Hysteresis: {hysteresis}°C  Interval: {interval}s",
     "cli.auto.gpu_alert": (
@@ -258,6 +259,7 @@ _DE = {
     "cli.raw_input.line": "[{ts}] {raw}",
 
     "cli.auto.no_sensor": "Kein CPU-Temperatursensor gefunden (coretemp/k10temp). Abbruch.",
+    "cli.auto.device_error": "Gerätefehler: {error}  (schlafe {interval}s)",
     "cli.auto.sensor": "Temperatursensor: {path}",
     "cli.auto.thresholds": "Schwellen: {thresholds}  Hysterese: {hysteresis}°C  Intervall: {interval}s",
     "cli.auto.gpu_alert": (

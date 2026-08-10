@@ -692,7 +692,8 @@ class Report:
         Rundung für die Anzeige - die tatsächliche Hardware reagiert auf jeden
         einzelnen raw-Wert mit ca. 25 U/min Schritt (siehe protocol.py NACHTRAG 9,
         Feinstufen-Test über alle 100 raw-Werte)."""
-        level = round((self.fan_speed_raw - 1) * 25 / 99)
+        raw = max(1, min(self.fan_speed_raw, 100))
+        level = round((raw - 1) * 25 / 99)
         return 300 + level * 100
 
     def color_name(self):

@@ -26,6 +26,8 @@ def load_profiles(path=None):
             data = json.load(f)
     except (json.JSONDecodeError, OSError):
         return slots
+    if not isinstance(data, dict):
+        return slots
     for i, entry in enumerate(data.get("slots", [])[:MAX_PROFILES]):
         slots[i] = entry
     return slots

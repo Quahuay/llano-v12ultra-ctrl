@@ -180,29 +180,41 @@ def cmd_auto(args):
 
     current_color = None
     current_effect = 0
+    current_temp = None  # Temperatur der aktuell aktiven Schwelle (für Hysterese)
     gpu_alert_active = False
     last_reminder_ts = 0.0
     current_fan_raw = None
     try:
         with device_mod.Device() as dev:
             while True:
-                t = temp_mod.read_temp_c(sensor_path)
-                gpu_t = temp_mod.read_gpu_temp_c() if gpu_enabled else None
-                report = dev.get_report()  # mainly for live fan telemetry (fan_rpm)
+                try:
+                    t = temp_mod.read_temp_c(sensor_path)
+                    gpu_t = temp_mod.read_gpu_temp_c() if gpu_enabled else None
+                    report = dev.get_report()
+                except (OSError, ValueError) as e:
+                    print(f"[{time.strftime('%H:%M:%S')}] {i18n.t('cli.auto.device_error', error=e, interval=interval)}", flush=True)
+                    time.sleep(interval)
+                    continue
 
                 cpu_color, cpu_effect, cpu_speed = current_color, current_effect, 0
+                active_temp = None
                 if t is not None:
                     cpu_color = thresholds[0]["color"]
                     cpu_effect = thresholds[0].get("effect", 0)
                     cpu_speed = thresholds[0].get("speed", 0)
+                    active_temp = thresholds[0]["temp_c"]
                     for th in thresholds:
                         limit = th["temp_c"]
-                        if current_color is not None and th["color"] < current_color:
+                        # Kühlt die CPU ab (aktuell aktive Schwelle liegt
+                        # oberhalb dieser Schwelle), verschiebe den Grenzwert
+                        # um die Hysterese nach unten.
+                        if current_temp is not None and th["temp_c"] <= current_temp:
                             limit -= hysteresis
                         if t >= limit:
                             cpu_color = th["color"]
                             cpu_effect = th.get("effect", 0)
                             cpu_speed = th.get("speed", 0)
+                            active_temp = th["temp_c"]
 
                 if gpu_enabled and gpu_t is not None:
                     if not gpu_alert_active and gpu_t >= gpu_cfg["temp_c"]:
@@ -218,8 +230,9 @@ def cmd_auto(args):
                 else:
                     target_color, target_effect, target_speed = cpu_color, cpu_effect, cpu_speed
 
-                if target_color is not None and (target_color, target_effect) != (current_color, current_effect):
+                if target_color is not None and (target_color, target_effect, target_speed) != (current_color, current_effect, getattr(dev, '_last_speed', None)):
                     r = dev.set_light(color=target_color, effect=target_effect, speed=target_speed, power=True)
+                    dev._last_speed = target_speed
                     ts = time.strftime("%H:%M:%S")
                     gpu_info = f"  GPU={gpu_t:.1f}°C" if gpu_t is not None else ""
                     cpu_info = f"{t:.1f}°C" if t is not None else "?"
@@ -228,6 +241,8 @@ def cmd_auto(args):
                         color_name=r.color_name(), effect_name=r.effect_name(),
                     ), flush=True)
                     current_color, current_effect = target_color, target_effect
+                if target_color is not None:
+                    current_temp = active_temp if t is not None else current_temp
 
                 if fan_curve_enabled and t is not None:
                     target_fan_raw = fan_curve_mod.raw_for_temp(curve_cfg["points"], t)

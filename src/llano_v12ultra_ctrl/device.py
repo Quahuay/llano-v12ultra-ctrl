@@ -168,6 +168,9 @@ class _WindowsDevice:
     def __init__(self, path=None):
         import hid
 
+        # path wird ignoriert - hid.Device hat keine Pfad-Selektion. Bei
+        # mehreren angeschlossenen baugleichen Pads wird das erste per
+        # VID/PID gefundene Gerät verwendet.
         try:
             self._dev = hid.Device(vid=VID_INT, pid=PID_INT)
         except hid.HIDException as e:
