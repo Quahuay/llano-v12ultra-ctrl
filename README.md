@@ -101,7 +101,7 @@ tagged. Pick the path for your platform:
 |---|---|
 | Windows | Download the `.msi` from [Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) and run it. Bundles its own Python, PyQt6, and `hidapi.dll`, so no separate Python install is needed. |
 | Debian/Ubuntu (apt-based) | Download the `.deb` from Releases, then `sudo apt install ./llano-v12ultra-ctrl_*.deb` |
-| Arch-based | Build it yourself from [`packaging/PKGBUILD`](packaging/PKGBUILD), see [`packaging/AUR.md`](packaging/AUR.md). An AUR package is planned but not published yet (status: TBD). |
+| Arch-based | `git clone` this repo, then `cd packaging && makepkg -si` (see [Arch Instructions](#arch-linux-self-compile)). No AUR required. |
 | Any other Linux distro | Download the `.AppImage` from Releases, `chmod +x`, run it directly. No installation needed. Runs the GUI by default; pass a CLI subcommand (e.g. `./llano-v12ultra-ctrl-*.AppImage status`) to use the CLI instead. |
 
 The `.deb` and Arch packages still need the udev rule step below. For `.deb` this is handled
@@ -157,6 +157,24 @@ The user also needs to be a member of the `plugdev` group:
 ```bash
 sudo usermod -aG plugdev "$USER"   # log out and back in afterwards
 ```
+
+### Arch Linux (self-compile)
+
+No AUR account needed - just `makepkg` directly from the source repo:
+
+```bash
+sudo pacman -S --needed base-devel python-build python-installer python-wheel python-pyqt6
+git clone https://github.com/Quahuay/llano-v12ultra-ctrl.git
+cd llano-v12ultra-ctrl/packaging
+makepkg -si
+```
+
+This builds and installs the package in one step. Same dependencies, same udev rule (to
+`/usr/lib/udev/rules.d/`), same systemd service. For more detail, see the full
+[`packaging/AUR.md`](packaging/AUR.md) which also covers building in a Docker container
+when no Arch system is available.
+
+Uninstall later with `sudo pacman -R llano-v12ultra-ctrl`.
 
 ## Language
 

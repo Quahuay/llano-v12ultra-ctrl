@@ -29,22 +29,30 @@ python3 -m venv "$APPDIR/usr"
 "$APPDIR/usr/bin/pip" install --no-cache-dir "$REPO_ROOT[gui]"
 
 # --- AppDir-Struktur -----------------------------------------------------
-mkdir -p "$APPDIR/usr/lib/udev/rules.d" "$APPDIR/usr/lib/systemd/user"
+mkdir -p "$APPDIR/usr/lib/udev/rules.d" "$APPDIR/usr/lib/systemd/user" \
+        "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 cp "$REPO_ROOT/packaging/70-llano-v12ultra-ctrl.rules" "$APPDIR/usr/lib/udev/rules.d/"
 cp "$REPO_ROOT/systemd/llano-v12ultra-ctrl.service" "$APPDIR/usr/lib/systemd/user/"
 cp "$REPO_ROOT/packaging/appimage/llano-v12ultra-ctrl.desktop" "$APPDIR/"
+cp "$REPO_ROOT/packaging/appimage/llano-v12ultra-ctrl.desktop" "$APPDIR/usr/share/applications/"
 cp "$REPO_ROOT/packaging/icons/llano-v12ultra-ctrl.png" "$APPDIR/"
+cp "$REPO_ROOT/packaging/icons/llano-v12ultra-ctrl.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/"
 cp "$REPO_ROOT/packaging/appimage/AppRun" "$APPDIR/AppRun"
 chmod +x "$APPDIR/AppRun"
 
-# --- linuxdeploy: native libpython3-Abhängigkeit bündeln + AppImage erzeugen ---
-LINUXDEPLOY="$WORK/linuxdeploy-x86_64.AppImage"
-curl -L -o "$LINUXDEPLOY" \
-    https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
-chmod +x "$LINUXDEPLOY"
+# --- AppRun + .desktop → AppImage mit appimagetool -------------------------
+# appimagetool erwartet einen funktionierenden AppDir und packt ihn ohne
+# weitere Dependency-Auflösung ins AppImage-Format. linuxdeploy ist hier
+# nicht nötig – PyQt6 (pip wheel) bringt seine eigene private Qt6-Kopie
+# bereits mit, ein zusätzliches Deployen scheitert regelmässig weil
+# linuxdeploy die Qt6-Bibliotheken im Standard-Systempfad sucht statt im
+# venv-site-packages-Pfad.
+APPIMAGETOOL="$WORK/appimagetool-x86_64.AppImage"
+curl -L -o "$APPIMAGETOOL" \
+    https://github.com/AppImage/appimagetool/releases/latest/download/appimagetool-x86_64.AppImage
+chmod +x "$APPIMAGETOOL"
 
 mkdir -p "$OUT_DIR"
-( cd "$OUT_DIR" && "$LINUXDEPLOY" --appdir "$APPDIR" --output appimage )
-mv "$OUT_DIR"/llano-v12ultra-ctrl*.AppImage "$OUT_DIR/llano-v12ultra-ctrl-${VERSION}-x86_64.AppImage"
+ARCH=x86_64 "$APPIMAGETOOL" "$APPDIR" "$OUT_DIR/llano-v12ultra-ctrl-${VERSION}-x86_64.AppImage"
 
 echo "Built: $OUT_DIR/llano-v12ultra-ctrl-${VERSION}-x86_64.AppImage"

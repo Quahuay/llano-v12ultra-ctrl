@@ -43,8 +43,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install build deps (FUSE, system libs for Qt/PyQt6 Deploy)
-        run: sudo apt-get update && sudo apt-get install -y libfuse2 libpulse0 libegl1 libgl1 libxkbcommon0 libfontconfig1 libfreetype6
+      - name: Install FUSE (needed to run appimagetool)
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
       - name: Build AppImage
         run: bash packaging/appimage/build.sh dist
       - uses: actions/upload-artifact@v4
