@@ -4,6 +4,7 @@ import time
 
 from . import config as config_mod
 from . import device as device_mod
+from . import fan_curve as fan_curve_mod
 from . import history as history_mod
 from . import notify as notify_mod
 from . import protocol
@@ -17,7 +18,7 @@ def cmd_status(args):
     print(f"Raw-Report:   {r.raw.hex(' ')}")
     print(f"Checksum ok:  {r.checksum_ok}")
     print(f"Gesamteinheit (Lüfter+Licht, per 'power'-Befehl):  {'AN' if r.power_on else 'AUS'}")
-    print(f"Lüfterdrehzahl (Rad, Stufe nicht per Software steuerbar): {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
+    print(f"Lüfterdrehzahl: {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
     print(f"Beleuchtung:  {'AN' if r.light_on else 'AUS'}")
     print(f"Farbe:        {r.color}  [{r.color_name()}]")
     print(f"Effekt:       {r.effect_raw}  [{r.effect_name()}]")
@@ -134,9 +135,16 @@ def cmd_auto(args):
     if fan_reminder_enabled:
         print(
             f"Lüfter-Erinnerung: ab {fan_cfg['temp_c']}°C wenn Drehzahl < {fan_cfg['min_rpm']} U/min "
-            f"(Cooldown {fan_cfg.get('cooldown_s', 300)}s) - die Software kann die Drehzahl nicht selbst "
-            "setzen, nur ans Rad-Hochdrehen erinnern."
+            f"(Cooldown {fan_cfg.get('cooldown_s', 300)}s)."
         )
+
+    curve_cfg = auto_cfg.get("fan_curve", {})
+    fan_curve_enabled = curve_cfg.get("enabled", False)
+    curve_min_change = curve_cfg.get("min_change_raw", 3)
+    if fan_curve_enabled:
+        pts = fan_curve_mod.sorted_points(curve_cfg["points"])
+        pts_str = ", ".join(f"{p['temp_c']}°C->{p['raw']}" for p in pts)
+        print(f"Lüfterkurve: aktiv ({pts_str}), min_change_raw={curve_min_change}")
 
     log_cfg = auto_cfg.get("log", {})
     logger = history_mod.HistoryLogger(log_cfg["path"]) if log_cfg.get("enabled", False) else None
@@ -147,6 +155,7 @@ def cmd_auto(args):
     current_effect = 0
     gpu_alert_active = False
     last_reminder_ts = 0.0
+    current_fan_raw = None
     try:
         with device_mod.Device() as dev:
             while True:
@@ -190,9 +199,16 @@ def cmd_auto(args):
                     print(f"[{ts}] CPU={cpu_info}{gpu_info} -> {r.color_name()} [{r.effect_name()}]", flush=True)
                     current_color, current_effect = target_color, target_effect
 
-                # Erinnerung: CPU heiß, aber gemessene Drehzahl (Rad-Telemetrie,
-                # nicht per Software steuerbar) bleibt niedrig - einzig
-                # möglicher "Regelkreis" ist hier der Mensch am physischen Rad.
+                if fan_curve_enabled and t is not None:
+                    target_fan_raw = fan_curve_mod.raw_for_temp(curve_cfg["points"], t)
+                    if current_fan_raw is None or abs(target_fan_raw - current_fan_raw) >= curve_min_change:
+                        report = dev.set_fan_speed(target_fan_raw)
+                        ts = time.strftime("%H:%M:%S")
+                        print(f"[{ts}] CPU={t:.1f}°C -> Lüfterkurve: raw={target_fan_raw} ({report.fan_rpm} U/min)", flush=True)
+                        current_fan_raw = target_fan_raw
+
+                # Erinnerung: CPU heiß, aber gemessene Drehzahl bleibt niedrig -
+                # z.B. nützlich, solange fan_curve (s.o.) nicht aktiviert ist.
                 if fan_reminder_enabled and t is not None and t >= fan_cfg["temp_c"] and report.fan_rpm < fan_cfg["min_rpm"]:
                     now = time.time()
                     if now - last_reminder_ts >= fan_cfg.get("cooldown_s", 300):

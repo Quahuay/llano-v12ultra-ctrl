@@ -24,7 +24,7 @@ der Original-App und durch systematische Live-Tests am physischen Gerät - inklu
 - [Installation](#installation)
 - [Nutzung](#nutzung)
 - [Automatikmodus (Temperatur-Indikator)](#automatikmodus-temperatur-indikator)
-- [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)
+- [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung)
 - [Windows-Status](#windows-status)
 - [Protokoll-Dokumentation](#protokoll-dokumentation)
 - [Beitragen](#beitragen)
@@ -43,10 +43,12 @@ der Original-App und durch systematische Live-Tests am physischen Gerät - inklu
   einzelne der 100 Rohwerte einzeln durchgetestet, kein physisches Rad-Drehen mehr nötig
 - **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
   (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
+- **Lüfterkurve** (opt-in): bildet die CPU-Temperatur per linearer Interpolation zwischen frei
+  konfigurierbaren Punkten auf eine Lüfterdrehzahl ab - in der GUI als editierbare Tabelle
+  verfügbar, siehe [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung)
 - **RPM-Verlauf** in der GUI (kleine Live-Sparkline der letzten ~2 Minuten Lüfterdrehzahl)
 - **Lüfter-Erinnerung**: Desktop-Benachrichtigung, wenn die CPU heiß ist, aber die gemessene
-  Drehzahl niedrig bleibt - z.B. nützlich, solange der Automatikmodus selbst noch keine
-  temperaturbasierte Drehzahlregelung fährt (siehe [Hardware-Hintergrund](#hardware-hintergrund))
+  Drehzahl niedrig bleibt - Übergangslösung, falls die Lüfterkurve (noch) nicht aktiviert ist
 - **CSV-Verlaufsprotokoll** (Temperatur/RPM/Farbe über Zeit), opt-in, für spätere Auswertung
 - **Kritisch-heiß-Alarm**: hohe Temperatur-Schwellen können statt nur einer anderen Farbe auch
   einen auffälligeren Effekt setzen (z.B. `chase`/Lauflicht)
@@ -69,10 +71,9 @@ Lüfterdrehzahl und Licht sind zwei komplett getrennte HID-Kommandos (siehe
 Fan-Kommando gefunden wurde, inklusive aller Sackgassen unterwegs, steht in
 [HISTORY.md](HISTORY.md).
 
-Der Automatikmodus (siehe unten) nutzt die Lüfterdrehzahl-Steuerung aktuell noch **nicht** aktiv
-(schaltet bisher nur die Farbe nach Temperatur um) - die Lüfter-Erinnerung und das Verlaufsprotokoll
-(siehe [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)) sind deshalb
-weiterhin nützlich, bis eine echte temperaturbasierte Drehzahlregelung eingebaut ist.
+Der Automatikmodus (siehe unten) kann optional auch die Lüfterdrehzahl temperaturbasiert regeln
+(Lüfterkurve, standardmäßig deaktiviert) - siehe
+[Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung).
 
 ## Installation
 
@@ -175,22 +176,27 @@ Die GUI zeigt den Auto-Modus-Status an und kann den Dienst für die laufende Sit
 pausieren/fortsetzen (`systemctl --user stop/start`). Der Dienst bleibt dabei `enabled` und läuft
 nach dem nächsten Login/Neustart normal weiter.
 
-## Lüfter-Erinnerung & Verlaufsprotokoll
+## Lüfterkurve & Lüfter-Erinnerung
 
-Beide Optionen leben im `auto`-Modus (siehe oben) und sind standardmäßig deaktiviert. Aktivierung
-in `~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
-[`config/config.example.toml`](config/config.example.toml).
+Alle drei Optionen leben im `auto`-Modus (siehe oben) und sind standardmäßig deaktiviert.
+Aktivierung in `~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
+[`config/config.example.toml`](config/config.example.toml) - oder in der GUI im Bereich
+"Lüfterkurve (Automatikmodus)" (editierbare Tabelle, Punkte hinzufügen/entfernen, Speichern).
+
+**Lüfterkurve** (`[auto.fan_curve]`): bildet die CPU-Temperatur per linearer Interpolation
+zwischen konfigurierten `points` (`temp_c`/`raw`-Paare) auf einen Lüfterdrehzahl-Rohwert ab.
+`min_change_raw` verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen - es wird nur
+geschrieben, wenn sich der Zielwert um mindestens so viel ändert. Wirkt nur, während `auto` läuft;
+das GUI-Formular speichert nur die Konfiguration, wendet sie nicht selbst live an.
 
 **Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
 (`notify-send`), wenn die CPU-Temperatur `temp_c` erreicht, die gemessene Drehzahl aber unter
 `min_rpm` bleibt. `cooldown_s` verhindert wiederholte Benachrichtigungen, solange die Bedingung
-anhält. Übergangslösung, solange der Automatikmodus die Drehzahl noch nicht selbst aktiv regelt
-(siehe [Hardware-Hintergrund](#hardware-hintergrund)).
+anhält. Übergangslösung, falls die Lüfterkurve (noch) nicht aktiviert ist.
 
 **Verlaufsprotokoll** (`[auto.log]`): schreibt bei aktivem `auto`-Modus fortlaufend eine
 CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an den konfigurierten
-`path`. Nützlich, um im Nachhinein zu sehen, welche Radstellung bei welcher Last tatsächlich
-ausreichend Kühlung liefert.
+`path`. Nützlich, um im Nachhinein die eigene Lüfterkurve anhand echter Lastdaten zu verfeinern.
 
 ## Windows-Status
 
@@ -225,6 +231,10 @@ oder zusätzlichen effect/color-Werten wären hilfreich. Bitte beim Ändern von 
 Messreihen/Belege für neue Erkenntnisse mitliefern, analog zum bestehenden Dokumentationsstil.
 
 **macOS ist nicht geplant** - das Pad ist explizit nicht für den Einsatz an Mac-Geräten geeignet.
+
+**Primär gepflegt wird Linux.** Windows-Unterstützung ist ein nachträglich hinzugefügtes Ziel, keine
+gleichrangige Plattform - Rückmeldungen/PRs dazu sind trotzdem willkommen, haben aber nicht dieselbe
+Priorität wie der Linux-Kernbetrieb.
 
 ## Autoren
 

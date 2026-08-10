@@ -7,18 +7,26 @@ sub-millisecond, ein eigener QThread ist dafür nicht nötig)."""
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QSlider,
+    QSpinBox,
+    QTableWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from .. import config as config_mod
+from .. import fan_curve as fan_curve_mod
 from .. import protocol
 from . import device_worker, service_control
 from .widgets import Sparkline
@@ -70,6 +78,7 @@ class MainWindow(QMainWindow):
         root.addWidget(self._build_status_group())
         root.addWidget(self._build_control_group())
         root.addWidget(self._build_fan_speed_group())
+        root.addWidget(self._build_fan_curve_group())
         root.addWidget(self._build_auto_group())
 
         self.statusBar().showMessage("Bereit")
@@ -159,11 +168,11 @@ class MainWindow(QMainWindow):
         grid.addLayout(brightness_row, 3, 1)
 
         button_row = QHBoxLayout()
-        self.light_off_button = QPushButton("Beleuchtung aus")
-        self.light_off_button.clicked.connect(lambda: self._write_light(light_on=False))
+        self.light_toggle_button = QPushButton("Beleuchtung AUS")
+        self.light_toggle_button.clicked.connect(self._toggle_light)
         self.power_button = QPushButton("Gesamteinheit AUS")
         self.power_button.clicked.connect(self._toggle_power)
-        button_row.addWidget(self.light_off_button)
+        button_row.addWidget(self.light_toggle_button)
         button_row.addWidget(self.power_button)
         grid.addLayout(button_row, 4, 0, 1, 2)
 
@@ -172,7 +181,7 @@ class MainWindow(QMainWindow):
             self.effect_combo,
             self.speed_combo,
             self.brightness_slider,
-            self.light_off_button,
+            self.light_toggle_button,
             self.power_button,
         ]
         return box
@@ -210,6 +219,94 @@ class MainWindow(QMainWindow):
         self.controls.append(self.fan_speed_slider)
         self.controls.append(self.fan_speed_apply_button)
         return box
+
+    def _build_fan_curve_group(self):
+        box = QGroupBox("Lüfterkurve (Automatikmodus)")
+        layout = QVBoxLayout(box)
+
+        hint = QLabel(
+            "Bildet die CPU-Temperatur auf eine Lüfterdrehzahl ab (linear zwischen den Punkten "
+            "interpoliert). Wird nur wirksam, wenn der Automatikmodus läuft - hier nur "
+            "konfigurieren und speichern, nicht live angewendet."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #808080; font-size: 11px;")
+        layout.addWidget(hint)
+
+        self.fan_curve_enabled_checkbox = QCheckBox("Lüfterkurve aktivieren")
+        layout.addWidget(self.fan_curve_enabled_checkbox)
+
+        self.fan_curve_table = QTableWidget(0, 2)
+        self.fan_curve_table.setHorizontalHeaderLabels(["Temperatur (°C)", "Drehzahl (raw 1-100)"])
+        self.fan_curve_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.fan_curve_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.fan_curve_table.setMaximumHeight(160)
+        layout.addWidget(self.fan_curve_table)
+
+        button_row = QHBoxLayout()
+        self.fan_curve_add_button = QPushButton("Punkt hinzufügen")
+        self.fan_curve_add_button.clicked.connect(self._add_curve_point)
+        self.fan_curve_remove_button = QPushButton("Ausgewählten Punkt entfernen")
+        self.fan_curve_remove_button.clicked.connect(self._remove_curve_point)
+        self.fan_curve_save_button = QPushButton("Speichern")
+        self.fan_curve_save_button.clicked.connect(self._save_fan_curve)
+        button_row.addWidget(self.fan_curve_add_button)
+        button_row.addWidget(self.fan_curve_remove_button)
+        button_row.addWidget(self.fan_curve_save_button)
+        layout.addLayout(button_row)
+
+        self._load_fan_curve_into_table()
+
+        # Bewusst NICHT in self.controls: die Kurve ist reine Konfiguration
+        # (config.toml), kein Live-Gerätezugriff - bleibt auch ohne
+        # verbundenes Pad bedienbar.
+        return box
+
+    def _load_fan_curve_into_table(self):
+        cfg = config_mod.load_config()
+        curve_cfg = cfg["auto"]["fan_curve"]
+        self.fan_curve_enabled_checkbox.setChecked(curve_cfg.get("enabled", False))
+        points = fan_curve_mod.sorted_points(curve_cfg.get("points", []))
+        self.fan_curve_table.setRowCount(0)
+        for p in points:
+            self._append_curve_row(p["temp_c"], p["raw"])
+
+    def _append_curve_row(self, temp_c=50, raw=50):
+        row = self.fan_curve_table.rowCount()
+        self.fan_curve_table.insertRow(row)
+
+        temp_spin = QSpinBox()
+        temp_spin.setRange(0, 110)
+        temp_spin.setValue(int(temp_c))
+        self.fan_curve_table.setCellWidget(row, 0, temp_spin)
+
+        raw_spin = QSpinBox()
+        raw_spin.setRange(1, 100)
+        raw_spin.setValue(int(raw))
+        self.fan_curve_table.setCellWidget(row, 1, raw_spin)
+
+    def _add_curve_point(self):
+        self._append_curve_row()
+
+    def _remove_curve_point(self):
+        row = self.fan_curve_table.currentRow()
+        if row >= 0:
+            self.fan_curve_table.removeRow(row)
+
+    def _save_fan_curve(self):
+        points = []
+        for row in range(self.fan_curve_table.rowCount()):
+            temp_spin = self.fan_curve_table.cellWidget(row, 0)
+            raw_spin = self.fan_curve_table.cellWidget(row, 1)
+            points.append({"temp_c": temp_spin.value(), "raw": raw_spin.value()})
+        if not points:
+            QMessageBox.warning(self, "Lüfterkurve", "Mindestens ein Punkt wird benötigt.")
+            return
+        config_mod.save_fan_curve(
+            self.fan_curve_enabled_checkbox.isChecked(), points, min_change_raw=3
+        )
+        self._load_fan_curve_into_table()  # sortiert neu geladen anzeigen
+        self.statusBar().showMessage("Lüfterkurve gespeichert (wirkt beim nächsten Start von 'auto')", 5000)
 
     def _build_auto_group(self):
         box = QGroupBox("Automatikmodus (Temperatur)")
@@ -292,6 +389,7 @@ class MainWindow(QMainWindow):
         self.lbl_raw.setText(r.raw.hex(" "))
         self.lbl_checksum.setText("ja" if r.checksum_ok else "NEIN")
         self.power_button.setText("Gesamteinheit AUS" if r.power_on else "Gesamteinheit AN")
+        self.light_toggle_button.setText("Beleuchtung AUS" if r.light_on else "Beleuchtung AN")
 
     def _sync_controls(self, r):
         """Zieht die Bedienelemente auf den zuletzt gelesenen Zustand nach
@@ -341,6 +439,11 @@ class MainWindow(QMainWindow):
             return
         self._last_report = report
         self._update_status_labels(report)
+
+    def _toggle_light(self):
+        if self._device is None or self._last_report is None:
+            return
+        self._write_light(light_on=not self._last_report.light_on)
 
     def _toggle_power(self):
         if self._device is None or self._last_report is None:

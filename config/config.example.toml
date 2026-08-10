@@ -1,17 +1,12 @@
-# Beispiel-Konfiguration für `llano-v12ultra-ctrl auto` (temperaturbasierte RGB-Farbumschaltung).
+# Beispiel-Konfiguration für `llano-v12ultra-ctrl auto`.
 # Nach ~/.config/llano-v12ultra-ctrl/config.toml kopieren und nach Bedarf anpassen.
 #
-# WICHTIG: Das Pad unterstützt KEINE stufenlose Software-Lüfterdrehzahl -
-# das ist eine Hardware/Firmware-Grenze, keine Einschränkung dieses Tools.
-# Die Lüfterdrehzahl bleibt ausschließlich über das physische Rad am Pad
-# steuerbar. Weiter unten gibt es zwei Möglichkeiten, mit dieser Grenze
-# umzugehen: einen Lüfter-Erinnerungs-Alarm und ein Verlaufsprotokoll.
-#
-# "auto" schaltet stattdessen die RGB-Farbe (0=rot, 1=hellblau, 2=grün,
-# 3=lila, 4=orange) je nach CPU-Temperatur um - nützlich als visueller
-# Temperatur-Indikator direkt am Pad, nicht als Kühlungsregler. Zusätzlich
-# gibt es unten einen eigenen GPU-Temperatur-Alarm (lila + breathing-Effekt),
-# der die CPU-Farblogik bei Bedarf übersteuert.
+# "auto" schaltet die RGB-Farbe (0=rot, 1=hellblau, 2=grün, 3=lila, 4=orange)
+# je nach CPU-Temperatur um - ein visueller Temperatur-Indikator direkt am
+# Pad. Zusätzlich gibt es unten einen eigenen GPU-Temperatur-Alarm (lila +
+# breathing-Effekt), der die CPU-Farblogik bei Bedarf übersteuert, sowie
+# optional (fan_curve, standardmäßig deaktiviert) eine echte
+# temperaturbasierte Lüfterdrehzahl-Regelung.
 
 [auto]
 # null/auskommentiert = automatisch erkennen (coretemp "Package id 0" bzw. k10temp "Tctl"/"Tdie")
@@ -53,16 +48,44 @@ color = 3    # lila
 effect = 1   # breathing
 speed = 0    # 0=schnell (offizieller Bereich 0-3)
 
-# Lüfter-Erinnerung: Ersatz für einen echten Regelkreis, da die Drehzahl
-# nicht per Software gesetzt werden kann. Schickt eine Desktop-Notification
-# (notify-send), wenn die CPU >= temp_c ist, aber die gemessene Drehzahl
-# unter min_rpm bleibt - als Erinnerung, das Rad am Pad manuell hochzudrehen.
-# cooldown_s verhindert Spam, solange die Bedingung anhält.
+# Lüfter-Erinnerung: schickt eine Desktop-Notification (notify-send), wenn
+# die CPU >= temp_c ist, aber die gemessene Drehzahl unter min_rpm bleibt.
+# Nützlich als Übergangslösung, solange fan_curve (s.u.) nicht aktiviert
+# ist. cooldown_s verhindert Spam, solange die Bedingung anhält.
 [auto.fan_reminder]
 enabled = false
 temp_c = 75
 min_rpm = 1500
 cooldown_s = 300
+
+# Lüfterkurve: bildet die CPU-Temperatur per stückweise linearer
+# Interpolation auf einen fan_speed-Rohwert (1-100, ca. 25 U/min pro
+# Schritt, siehe protocol.py NACHTRAG 8/9) ab. Punkte müssen nach temp_c
+# nicht sortiert in der Datei stehen, werden aber intern sortiert.
+# Unterhalb des niedrigsten bzw. oberhalb des höchsten Punkts wird der
+# jeweilige Randwert gehalten (kein Extrapolieren). min_change_raw
+# verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen -
+# es wird nur geschrieben, wenn sich der Zielwert um mindestens so viel
+# ändert. Standardmäßig deaktiviert (opt-in).
+[auto.fan_curve]
+enabled = false
+min_change_raw = 3
+
+[[auto.fan_curve.points]]
+temp_c = 30
+raw = 1      # 300 U/min
+
+[[auto.fan_curve.points]]
+temp_c = 50
+raw = 30     # ca. 1050 U/min
+
+[[auto.fan_curve.points]]
+temp_c = 70
+raw = 60     # ca. 1800 U/min
+
+[[auto.fan_curve.points]]
+temp_c = 85
+raw = 100    # 2800 U/min
 
 # CSV-Verlaufsprotokoll (Zeitstempel/Temperaturen/RPM/Farbe/Effekt) für
 # spätere Auswertung, z.B. um eine passende Radstellung für typische
