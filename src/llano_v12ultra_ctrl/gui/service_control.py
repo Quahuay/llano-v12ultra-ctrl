@@ -3,14 +3,19 @@
 Linux: systemd --user Unit `llano-v12ultra-ctrl.service`. Live getestet.
 Windows: KEIN systemd-Äquivalent - stattdessen eine geplante Aufgabe
 (Scheduled Task, `schtasks`), die bei Anmeldung `llano-v12ultra-ctrl auto`
-startet (siehe README für die Einrichtung, einfacher als ein echter
-Windows-Dienst, da kein Admin-Installer nötig ist). **UNGETESTET** - keine
-Windows-Maschine in dieser Entwicklungsumgebung verfügbar.
+startet. Live gegen echte Hardware getestet - dabei fiel auf, dass die
+GUI die geplante Aufgabe zuvor NIRGENDS selbst anlegte ("Fortsetzen" rief
+nur `schtasks /run` auf eine nie registrierte Aufgabe, was still fehlschlug
+- das war der Bug hinter "Automatikmodus funktioniert nicht"). Behoben:
+`_start_windows()` registriert die Aufgabe jetzt bei Bedarf automatisch
+(idempotent, kein Admin/Installer nötig, Trigger "bei Anmeldung", läuft im
+Kontext des angemeldeten Nutzers).
 
 Die GUI schaltet den Daemon nur für die laufende Sitzung pausiert/fortgesetzt
 (kein dauerhaftes Deaktivieren der Registrierung) - siehe README.
 """
 
+import shutil
 import subprocess
 import sys
 
@@ -36,27 +41,91 @@ def _start_linux() -> bool:
     return result.returncode == 0
 
 
+def _task_exists_windows() -> bool:
+    result = subprocess.run(
+        ["schtasks", "/query", "/tn", WINDOWS_TASK_NAME],
+        capture_output=True, text=True, errors="replace",
+    )
+    return result.returncode == 0
+
+
+def _find_cli_command() -> str:
+    """Ermittelt den Aufrufbefehl für `llano-v12ultra-ctrl auto`, den die
+    geplante Aufgabe verwenden soll.
+
+    `sys.executable` ist hier NICHT verlässlich `python.exe` - wenn dieser
+    Code aus der GUI heraus läuft, ist es der Pfad zu
+    `llano-v12ultra-ctrl-gui.exe` selbst (Scripts\\llano-v12ultra-ctrl-gui.exe).
+    Ein einzelner `.parent / "Scripts"`-Versuch (frühere, live als kaputt
+    entdeckte Version) landet dann bei einem nicht existierenden doppelten
+    `Scripts\\Scripts\\...` und die `-m`-Rückfalloption ruft am Ende den
+    GUI-Wrapper selbst mit `-m ...` auf (der das Argument ignoriert und
+    einfach die GUI nochmal startet, statt `auto` auszuführen) - deshalb
+    hier mehrere plausible Fundorte durchprobieren, bevor auf `-m`
+    zurückgefallen wird."""
+    from pathlib import Path
+
+    candidates = []
+    which_result = shutil.which("llano-v12ultra-ctrl")
+    if which_result:
+        candidates.append(Path(which_result))
+
+    exe_dir = Path(sys.executable).parent
+    candidates += [
+        exe_dir / "llano-v12ultra-ctrl.exe",  # sys.executable ist bereits ein Scripts-Exe (z.B. die GUI selbst)
+        exe_dir / "Scripts" / "llano-v12ultra-ctrl.exe",  # sys.executable ist z.B. python.exe im venv-Root
+        Path(sys.prefix) / "Scripts" / "llano-v12ultra-ctrl.exe",  # zur Sicherheit zusätzlich über sys.prefix
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return f'"{candidate}" auto'
+
+    return f'"{sys.executable}" -m llano_v12ultra_ctrl.cli auto'
+
+
+def _register_task_windows() -> bool:
+    """Registriert die geplante Aufgabe einmalig (idempotent, `/f` überschreibt
+    eine evtl. kaputte Altregistrierung). Kein Admin nötig: Trigger "bei
+    Anmeldung" (`/sc onlogon`), läuft mit den Rechten des angemeldeten
+    Nutzers (`/rl limited`), kein SYSTEM/Scheduled-Task-Elevation-Ärger wie
+    beim einmaligen Windows-Setup (siehe HISTORY.md)."""
+    command = _find_cli_command()
+    result = subprocess.run(
+        [
+            "schtasks", "/create", "/tn", WINDOWS_TASK_NAME,
+            "/tr", command, "/sc", "onlogon", "/rl", "limited", "/f",
+        ],
+        capture_output=True, text=True, errors="replace",
+    )
+    return result.returncode == 0
+
+
 def _is_active_windows() -> bool:
-    """UNGETESTET - siehe Modul-Docstring. `schtasks /query .../v` liefert
-    im "Status"-Feld u.a. "Running" oder "Ready" zurück."""
+    """`schtasks /query .../v` liefert im "Status"-Feld u.a. "Running" oder
+    "Ready" zurück. Liefert False (statt Fehler), solange die Aufgabe noch
+    nicht registriert ist - dafür ist `_register_task_windows()` da."""
     result = subprocess.run(
         ["schtasks", "/query", "/tn", WINDOWS_TASK_NAME, "/fo", "list", "/v"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, errors="replace",
     )
     return result.returncode == 0 and "Running" in result.stdout
 
 
 def _stop_windows() -> bool:
-    """UNGETESTET. Beendet die laufende Instanz; die Registrierung der
-    geplanten Aufgabe selbst bleibt bestehen (kommt beim nächsten Login
-    normal wieder, analog zum `enabled`-Zustand unter systemd)."""
+    """Beendet die laufende Instanz; die Registrierung der geplanten Aufgabe
+    selbst bleibt bestehen (kommt beim nächsten Login normal wieder, analog
+    zum `enabled`-Zustand unter systemd)."""
     result = subprocess.run(["schtasks", "/end", "/tn", WINDOWS_TASK_NAME], capture_output=True)
     return result.returncode == 0
 
 
 def _start_windows() -> bool:
-    """UNGETESTET. Startet die geplante Aufgabe sofort (statt auf den
-    nächsten Login zu warten)."""
+    """Startet die geplante Aufgabe sofort (statt auf den nächsten Login zu
+    warten). Registriert sie zuerst automatisch, falls sie noch nicht
+    existiert - das war der Bug hinter "Automatikmodus funktioniert nicht",
+    siehe Moduldokstring."""
+    if not _task_exists_windows() and not _register_task_windows():
+        return False
     result = subprocess.run(["schtasks", "/run", "/tn", WINDOWS_TASK_NAME], capture_output=True)
     return result.returncode == 0
 

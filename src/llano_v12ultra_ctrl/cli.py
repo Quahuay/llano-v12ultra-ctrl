@@ -6,24 +6,29 @@ from . import config as config_mod
 from . import device as device_mod
 from . import fan_curve as fan_curve_mod
 from . import history as history_mod
+from . import i18n
 from . import notify as notify_mod
 from . import protocol
 from . import temp as temp_mod
 
 
+def _yn(value):
+    return i18n.t("common.on") if value else i18n.t("common.off")
+
+
 def cmd_status(args):
     with device_mod.Device() as dev:
         r = dev.get_report()
-    print(f"Gerät:        {dev.path}")
-    print(f"Raw-Report:   {r.raw.hex(' ')}")
-    print(f"Checksum ok:  {r.checksum_ok}")
-    print(f"Gesamteinheit (Lüfter+Licht, per 'power'-Befehl):  {'AN' if r.power_on else 'AUS'}")
-    print(f"Lüfterdrehzahl: {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
-    print(f"Beleuchtung:  {'AN' if r.light_on else 'AUS'}")
-    print(f"Farbe:        {r.color}  [{r.color_name()}]")
-    print(f"Effekt:       {r.effect_raw}  [{r.effect_name()}]")
-    print(f"Geschwindigkeit: {r.speed}  (nicht monoton, siehe protocol.py für Details)")
-    print(f"Helligkeit:   {r.brightness}  (0=dunkel, 255=maximal hell)")
+    print(i18n.t("cli.status.device", path=dev.path))
+    print(i18n.t("cli.status.raw_report", hex=r.raw.hex(" ")))
+    print(i18n.t("cli.status.checksum_ok", ok=r.checksum_ok))
+    print(i18n.t("cli.status.power", state=_yn(r.power_on)))
+    print(i18n.t("cli.status.fan_speed", rpm=r.fan_rpm, raw=r.fan_speed_raw))
+    print(i18n.t("cli.status.light", state=_yn(r.light_on)))
+    print(i18n.t("cli.status.color", color=r.color, name=r.color_name()))
+    print(i18n.t("cli.status.effect", effect=r.effect_raw, name=r.effect_name()))
+    print(i18n.t("cli.status.speed", speed=r.speed))
+    print(i18n.t("cli.status.brightness", brightness=r.brightness))
     return 0
 
 
@@ -33,9 +38,9 @@ def _resolve_choice(value, name_map, label):
     try:
         v = int(value)
     except ValueError:
-        raise SystemExit(f"Ungültiger {label} '{value}'. Erlaubt: 0-4 oder {', '.join(name_map)}")
+        raise SystemExit(i18n.t("cli.error.invalid_choice", label=label, value=value, names=", ".join(name_map)))
     if not 0 <= v <= 4:
-        raise SystemExit(f"{label} muss zwischen 0 und 4 liegen")
+        raise SystemExit(i18n.t("cli.error.choice_range", label=label))
     return v
 
 
@@ -43,15 +48,19 @@ def cmd_light(args):
     with device_mod.Device() as dev:
         if args.off:
             r = dev.set_light(color=0, light_on=False)
-            print(f"Beleuchtung ausgeschaltet, Lüfter unbeeinflusst (raw={r.raw.hex(' ')})")
+            print(i18n.t("cli.light.off_done", raw=r.raw.hex(" ")))
             return 0
         current = dev.get_report()
-        color = _resolve_choice(args.color, protocol.NAME_TO_COLOR, "Farbe") if args.color is not None else current.color
-        effect = _resolve_choice(args.effect, protocol.NAME_TO_EFFECT, "Effekt") if args.effect is not None else (current.effect_raw if current.light_on else 0)
+        color = _resolve_choice(args.color, protocol.NAME_TO_COLOR, i18n.t("cli.label.color")) if args.color is not None else current.color
+        effect = _resolve_choice(args.effect, protocol.NAME_TO_EFFECT, i18n.t("cli.label.effect")) if args.effect is not None else (current.effect_raw if current.light_on else 0)
         speed = args.speed if args.speed is not None else current.speed
         brightness = args.brightness if args.brightness is not None else current.brightness
         r = dev.set_light(color=color, effect=effect, speed=speed, light_on=True, brightness=brightness)
-    print(f"Gesetzt: color={r.color} [{r.color_name()}]  effect={r.effect_raw} [{r.effect_name()}]  speed={r.speed}  brightness={r.brightness}  (raw={r.raw.hex(' ')})")
+    print(i18n.t(
+        "cli.light.set_done",
+        color=r.color, cname=r.color_name(), effect=r.effect_raw, ename=r.effect_name(),
+        speed=r.speed, brightness=r.brightness, raw=r.raw.hex(" "),
+    ))
     return 0
 
 
@@ -59,21 +68,21 @@ def cmd_power(args):
     with device_mod.Device() as dev:
         r = dev.set_power(power=(args.state == "on"))
     if r.power_on:
-        print(f"Gesamteinheit AN (Lüfter + Licht laufen wieder, raw={r.raw.hex(' ')})")
+        print(i18n.t("cli.power.on_done", raw=r.raw.hex(" ")))
     else:
-        print(f"Gesamteinheit AUS (Lüfter UND Licht komplett gestoppt, raw={r.raw.hex(' ')})")
+        print(i18n.t("cli.power.off_done", raw=r.raw.hex(" ")))
     return 0
 
 
 def cmd_fan_speed(args):
     with device_mod.Device() as dev:
         r = dev.set_fan_speed(args.raw)
-    print(f"Lüfterdrehzahl auf raw={args.raw} gesetzt -> Report zeigt {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
+    print(i18n.t("cli.fan_speed.set_done", raw=args.raw, rpm=r.fan_rpm, raw2=r.fan_speed_raw))
     return 0
 
 
 def cmd_monitor(args):
-    print("Beobachte Live-Telemetrie (Strg+C zum Beenden)...")
+    print(i18n.t("cli.monitor.watching"))
     last = None
     with device_mod.Device() as dev:
         try:
@@ -81,7 +90,11 @@ def cmd_monitor(args):
                 r = dev.get_report()
                 if r.raw != last:
                     ts = time.strftime("%H:%M:%S")
-                    print(f"[{ts}] {r.fan_rpm:4d} U/min  color={r.color} [{r.color_name()}]  effect={r.effect_raw} [{r.effect_name()}]  speed={r.speed}  raw={r.raw.hex(' ')}", flush=True)
+                    print(i18n.t(
+                        "cli.monitor.line",
+                        ts=ts, rpm=r.fan_rpm, color=r.color, cname=r.color_name(),
+                        effect=r.effect_raw, ename=r.effect_name(), speed=r.speed, raw=r.raw.hex(" "),
+                    ), flush=True)
                     last = r.raw
                 time.sleep(args.interval)
         except KeyboardInterrupt:
@@ -90,19 +103,14 @@ def cmd_monitor(args):
 
 
 def cmd_raw_input(args):
-    print(
-        "Beobachte rohen 64-Byte Input-Report (Strg+C zum Beenden).\n"
-        "Diagnose-Befehl: laut bisheriger Analyse (siehe protocol.py) ohne "
-        "bekannten inhaltsabhängigen Effekt/Bedeutung - rein zum manuellen "
-        "Explorieren, es wird nichts geschrieben."
-    )
+    print(i18n.t("cli.raw_input.intro"))
     with device_mod.Device() as dev:
         try:
             while True:
                 raw = dev.read_input_report(timeout_s=args.timeout)
                 if raw is not None:
                     ts = time.strftime("%H:%M:%S")
-                    print(f"[{ts}] {raw.hex(' ')}", flush=True)
+                    print(i18n.t("cli.raw_input.line", ts=ts, raw=raw.hex(" ")), flush=True)
         except KeyboardInterrupt:
             pass
     return 0
@@ -114,29 +122,30 @@ def cmd_auto(args):
 
     sensor_path = auto_cfg.get("temp_sensor") or temp_mod.find_cpu_temp_input()
     if not sensor_path:
-        print("Kein CPU-Temperatursensor gefunden (coretemp/k10temp). Abbruch.", file=sys.stderr)
+        print(i18n.t("cli.auto.no_sensor"), file=sys.stderr)
         return 1
-    print(f"Temperatursensor: {sensor_path}")
+    print(i18n.t("cli.auto.sensor", path=sensor_path))
 
     thresholds = sorted(auto_cfg["thresholds"], key=lambda t: t["temp_c"])
     hysteresis = auto_cfg.get("hysteresis_c", 3)
     interval = auto_cfg.get("poll_interval_s", 5)
     gpu_cfg = auto_cfg.get("gpu_alert", {})
     gpu_enabled = gpu_cfg.get("enabled", False)
-    print(f"Schwellen: {thresholds}  Hysterese: {hysteresis}°C  Intervall: {interval}s")
+    print(i18n.t("cli.auto.thresholds", thresholds=thresholds, hysteresis=hysteresis, interval=interval))
     if gpu_enabled:
-        print(
-            f"GPU-Alarm: ab {gpu_cfg['temp_c']}°C (aus bei {gpu_cfg['temp_c'] - gpu_cfg['hysteresis_c']}°C) "
-            f"-> color={gpu_cfg['color']} effect={gpu_cfg['effect']} (nur wenn GPU >= CPU, 'wer wärmer ist gewinnt')"
-        )
+        print(i18n.t(
+            "cli.auto.gpu_alert",
+            temp_c=gpu_cfg["temp_c"], off_temp_c=gpu_cfg["temp_c"] - gpu_cfg["hysteresis_c"],
+            color=gpu_cfg["color"], effect=gpu_cfg["effect"],
+        ))
 
     fan_cfg = auto_cfg.get("fan_reminder", {})
     fan_reminder_enabled = fan_cfg.get("enabled", False)
     if fan_reminder_enabled:
-        print(
-            f"Lüfter-Erinnerung: ab {fan_cfg['temp_c']}°C wenn Drehzahl < {fan_cfg['min_rpm']} U/min "
-            f"(Cooldown {fan_cfg.get('cooldown_s', 300)}s)."
-        )
+        print(i18n.t(
+            "cli.auto.fan_reminder",
+            temp_c=fan_cfg["temp_c"], min_rpm=fan_cfg["min_rpm"], cooldown_s=fan_cfg.get("cooldown_s", 300),
+        ))
 
     curve_cfg = auto_cfg.get("fan_curve", {})
     fan_curve_enabled = curve_cfg.get("enabled", False)
@@ -144,12 +153,12 @@ def cmd_auto(args):
     if fan_curve_enabled:
         pts = fan_curve_mod.sorted_points(curve_cfg["points"])
         pts_str = ", ".join(f"{p['temp_c']}°C->{p['raw']}" for p in pts)
-        print(f"Lüfterkurve: aktiv ({pts_str}), min_change_raw={curve_min_change}")
+        print(i18n.t("cli.auto.fan_curve", points=pts_str, min_change=curve_min_change))
 
     log_cfg = auto_cfg.get("log", {})
     logger = history_mod.HistoryLogger(log_cfg["path"]) if log_cfg.get("enabled", False) else None
     if logger:
-        print(f"Verlaufsprotokoll: {logger.path}")
+        print(i18n.t("cli.auto.log_path", path=logger.path))
 
     current_color = None
     current_effect = 0
@@ -161,7 +170,7 @@ def cmd_auto(args):
             while True:
                 t = temp_mod.read_temp_c(sensor_path)
                 gpu_t = temp_mod.read_gpu_temp_c() if gpu_enabled else None
-                report = dev.get_report()  # v.a. für die Live-Lüftertelemetrie (fan_rpm)
+                report = dev.get_report()  # mainly for live fan telemetry (fan_rpm)
 
                 cpu_color, cpu_effect, cpu_speed = current_color, current_effect, 0
                 if t is not None:
@@ -183,9 +192,9 @@ def cmd_auto(args):
                     elif gpu_alert_active and gpu_t < gpu_cfg["temp_c"] - gpu_cfg["hysteresis_c"]:
                         gpu_alert_active = False
 
-                # "wer wärmer ist gewinnt": GPU-Alarm nur, wenn er aktiv ist
-                # UND die GPU mindestens so heiß wie die CPU ist - sonst
-                # gewinnt weiterhin die normale CPU-Farblogik.
+                # "whichever is hotter wins": GPU alert only kicks in when
+                # active AND the GPU is at least as hot as the CPU -
+                # otherwise the normal CPU color logic still wins.
                 if gpu_alert_active and gpu_t is not None and (t is None or gpu_t >= t):
                     target_color, target_effect, target_speed = gpu_cfg["color"], gpu_cfg["effect"], gpu_cfg.get("speed", 0)
                 else:
@@ -196,7 +205,10 @@ def cmd_auto(args):
                     ts = time.strftime("%H:%M:%S")
                     gpu_info = f"  GPU={gpu_t:.1f}°C" if gpu_t is not None else ""
                     cpu_info = f"{t:.1f}°C" if t is not None else "?"
-                    print(f"[{ts}] CPU={cpu_info}{gpu_info} -> {r.color_name()} [{r.effect_name()}]", flush=True)
+                    print(i18n.t(
+                        "cli.auto.color_change", ts=ts, cpu_info=cpu_info, gpu_info=gpu_info,
+                        color_name=r.color_name(), effect_name=r.effect_name(),
+                    ), flush=True)
                     current_color, current_effect = target_color, target_effect
 
                 if fan_curve_enabled and t is not None:
@@ -204,17 +216,19 @@ def cmd_auto(args):
                     if current_fan_raw is None or abs(target_fan_raw - current_fan_raw) >= curve_min_change:
                         report = dev.set_fan_speed(target_fan_raw)
                         ts = time.strftime("%H:%M:%S")
-                        print(f"[{ts}] CPU={t:.1f}°C -> Lüfterkurve: raw={target_fan_raw} ({report.fan_rpm} U/min)", flush=True)
+                        print(i18n.t(
+                            "cli.auto.fan_curve_change", ts=ts, temp=t, raw=target_fan_raw, rpm=report.fan_rpm,
+                        ), flush=True)
                         current_fan_raw = target_fan_raw
 
-                # Erinnerung: CPU heiß, aber gemessene Drehzahl bleibt niedrig -
-                # z.B. nützlich, solange fan_curve (s.o.) nicht aktiviert ist.
+                # Reminder: CPU hot, but measured speed stays low - e.g.
+                # useful while fan_curve (above) isn't enabled.
                 if fan_reminder_enabled and t is not None and t >= fan_cfg["temp_c"] and report.fan_rpm < fan_cfg["min_rpm"]:
                     now = time.time()
                     if now - last_reminder_ts >= fan_cfg.get("cooldown_s", 300):
                         notify_mod.send(
-                            "llano-v12ultra-ctrl: Lüfter zu langsam",
-                            f"CPU {t:.0f}°C, aber nur {report.fan_rpm} U/min. Rad am Pad manuell hochdrehen?",
+                            i18n.t("cli.auto.notify_title"),
+                            i18n.t("cli.auto.notify_body", temp=t, rpm=report.fan_rpm),
                         )
                         last_reminder_ts = now
 
@@ -230,50 +244,57 @@ def cmd_auto(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="llano-v12ultra-ctrl", description="Steuerung für das llano V12 Ultra Kühlpad (Myth.Cool / Holtek 374a:b101)")
+    p = argparse.ArgumentParser(prog="llano-v12ultra-ctrl", description=i18n.t("cli.parser.description"))
     sub = p.add_subparsers(dest="command", required=True)
 
-    p_status = sub.add_parser("status", help="aktuellen Gerätezustand anzeigen (Farbe/Effekt/Geschwindigkeit + Live-Telemetrie)")
+    p_status = sub.add_parser("status", help=i18n.t("cli.parser.status.help"))
     p_status.set_defaults(func=cmd_status)
 
-    p_light = sub.add_parser("light", help="Beleuchtung steuern (Farbe/Effekt/Geschwindigkeit/Aus)")
-    p_light.add_argument("--color", default=None, help="0-4 oder red/lightblue/green/purple/orange")
-    p_light.add_argument("--effect", default=None, help="0-4 oder solid/breathing/rainbow/chase/zones")
-    p_light.add_argument("--speed", type=int, default=None, help="0-3 offiziell genutzt (0=schnell..3=langsam). Werte 4-255 technisch möglich, aber von der Original-App nie validiert und nicht monoton (siehe protocol.py)")
-    p_light.add_argument("--brightness", type=int, default=None, help="0-255 (0=dunkel, 255=maximal hell)")
-    p_light.add_argument("--off", action="store_true", help="Beleuchtung ausschalten")
+    p_light = sub.add_parser("light", help=i18n.t("cli.parser.light.help"))
+    p_light.add_argument("--color", default=None, help=i18n.t("cli.parser.light.color.help"))
+    p_light.add_argument("--effect", default=None, help=i18n.t("cli.parser.light.effect.help"))
+    p_light.add_argument("--speed", type=int, default=None, help=i18n.t("cli.parser.light.speed.help"))
+    p_light.add_argument("--brightness", type=int, default=None, help=i18n.t("cli.parser.light.brightness.help"))
+    p_light.add_argument("--off", action="store_true", help=i18n.t("cli.parser.light.off.help"))
     p_light.set_defaults(func=cmd_light)
 
-    p_power = sub.add_parser("power", help="Gesamte Einheit (Lüfter+Licht) komplett an/aus schalten - reiner Kill-Switch, keine Zwischenstufen")
+    p_power = sub.add_parser("power", help=i18n.t("cli.parser.power.help"))
     p_power.add_argument("state", choices=["on", "off"])
     p_power.set_defaults(func=cmd_power)
 
-    p_fan_speed = sub.add_parser("fan-speed", help="Lüfterdrehzahl setzen (eigenes Fan-Kommando, siehe protocol.py NACHTRAG 8)")
-    p_fan_speed.add_argument("raw", type=int, help="1-100")
+    p_fan_speed = sub.add_parser("fan-speed", help=i18n.t("cli.parser.fan_speed.help"))
+    p_fan_speed.add_argument("raw", type=int, help=i18n.t("cli.parser.fan_speed.raw.help"))
     p_fan_speed.set_defaults(func=cmd_fan_speed)
 
-    p_monitor = sub.add_parser("monitor", help="Live-Telemetrie laufend anzeigen")
-    p_monitor.add_argument("--interval", type=float, default=0.3, help="Poll-Intervall in Sekunden (default 0.3)")
+    p_monitor = sub.add_parser("monitor", help=i18n.t("cli.parser.monitor.help"))
+    p_monitor.add_argument("--interval", type=float, default=0.3, help=i18n.t("cli.parser.monitor.interval.help"))
     p_monitor.set_defaults(func=cmd_monitor)
 
-    p_raw_input = sub.add_parser("raw-input", help="Rohen 64-Byte Input-Report beobachten (Diagnose/Exploration, nur Lesen)")
-    p_raw_input.add_argument("--timeout", type=float, default=0.2, help="Timeout pro Lesevorgang in Sekunden (default 0.2)")
+    p_raw_input = sub.add_parser("raw-input", help=i18n.t("cli.parser.raw_input.help"))
+    p_raw_input.add_argument("--timeout", type=float, default=0.2, help=i18n.t("cli.parser.raw_input.timeout.help"))
     p_raw_input.set_defaults(func=cmd_raw_input)
 
-    p_auto = sub.add_parser("auto", help="Temperaturbasierten Auto-Farb-Daemon starten (visueller Temperatur-Indikator)")
-    p_auto.add_argument("--config", default=None, help="Pfad zur config.toml (default ~/.config/llano-v12ultra-ctrl/config.toml)")
+    p_auto = sub.add_parser("auto", help=i18n.t("cli.parser.auto.help"))
+    p_auto.add_argument("--config", default=None, help=i18n.t("cli.parser.auto.config.help"))
     p_auto.set_defaults(func=cmd_auto)
 
     return p
 
 
 def main(argv=None):
+    # Sprache VOR dem Parser-Bau festlegen (dessen Hilfetexte werden
+    # einmalig bei Aufruf von build_parser() übersetzt) - siehe i18n.py:
+    # LLANO_LANGUAGE-Env-Var > config.toml > Englisch. Ein `--lang`-Argument
+    # auf dem Parser selbst wäre ein Henne-Ei-Problem (der Parser müsste
+    # erst geparst werden, um zu wissen, in welcher Sprache er seine eigene
+    # Hilfe anzeigen soll).
+    i18n.init_language()
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
         return args.func(args)
     except device_mod.DeviceNotFoundError as e:
-        print(f"Fehler: {e}", file=sys.stderr)
+        print(i18n.t("cli.error.generic", error=e), file=sys.stderr)
         return 2
 
 

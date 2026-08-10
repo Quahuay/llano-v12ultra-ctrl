@@ -1,94 +1,105 @@
 # llano-v12ultra-ctrl
 
+*[Deutsche Version](README.de.md)*
+
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
-![Platform: Linux (primär) + Windows (Geräteansteuerung getestet)](https://img.shields.io/badge/platform-Linux%20(prim%C3%A4r)%20%2B%20Windows-lightgrey.svg)
+![Platform: Linux (primary) + Windows (device control tested)](https://img.shields.io/badge/platform-Linux%20(primary)%20%2B%20Windows-lightgrey.svg)
 
-> **Primär für Linux entwickelt und gepflegt.** Die eigentliche Geräteansteuerung (`status`/
-> `light`/`fan-speed`) ist live gegen echte Hardware unter Windows getestet und funktioniert (siehe
-> [Windows-Status](#windows-status)) - Temperatursensor-Erkennung und Hintergrunddienst-Steuerung
-> sind unter Windows dagegen bisher nur code-seitig vorbereitet, nicht praktisch verifiziert.
+> **Primarily developed and maintained for Linux.** The actual device control (`status`/`light`/
+> `fan-speed`) is live-tested against real hardware on Windows and works (see
+> [Windows Status](#windows-status)) - temperature sensor detection and background service control
+> are, on the other hand, only prepared in code so far on Windows, not practically verified.
 
-Natives Linux-Steuerungstool für das **llano V12 Ultra** RGB-Laptop-Kühlpad (Holtek USB-HID
-`374a:b101`), dessen offizielle Windows-Software **Myth.Cool** ist. Statt die Windows-App unter
-Wine laufen zu lassen (kaputte UI-Texte, nicht funktionierendes Sensor-Dashboard), spricht
-`llano-v12ultra-ctrl` das Gerät direkt über `/dev/hidraw*` an, reverse-engineered aus echtem USB-Traffic
-der Original-App und durch systematische Live-Tests am physischen Gerät - inklusive einer
-**echten, per Live-USB-Capture gefundenen Lüfterdrehzahl-Steuerung** (siehe unten).
+Native Linux control tool for the **llano V12 Ultra** RGB laptop cooling pad (Holtek USB-HID
+`374a:b101`), whose official Windows software is **Myth.Cool**. Instead of running the Windows app
+under Wine (broken UI text, non-functional sensor dashboard), `llano-v12ultra-ctrl` talks to the
+device directly via `/dev/hidraw*`, reverse-engineered from real USB traffic of the original app
+and through systematic live tests on the physical device - including a **real fan speed control
+found via live USB capture** (see below).
 
-## Inhaltsverzeichnis
+### Trademark Notice
+
+This project has no connection to, is not endorsed by, and is not authorized by the
+manufacturer/distributor of the **llano** brand or the **Myth.Cool** software. It is an
+independent, private open-source project by a single user of this hardware. The brand name is
+used purely descriptively, to clarify which device this tool is for (nominative use for
+recognizability) - not to suggest any affiliation, endorsement, or partnership. All rights to the
+mentioned brand names belong to their respective owners.
+
+## Table of Contents
 
 - [Features](#features)
-- [Hardware-Hintergrund](#hardware-hintergrund)
+- [Hardware Background](#hardware-background)
 - [Installation](#installation)
-- [Nutzung](#nutzung)
-- [Automatikmodus (Temperatur-Indikator)](#automatikmodus-temperatur-indikator)
-- [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung)
-- [Windows-Status](#windows-status)
-- [Protokoll-Dokumentation](#protokoll-dokumentation)
-- [Beitragen](#beitragen)
-- [Autoren](#autoren)
-- [Lizenz](#lizenz)
+- [Language](#language)
+- [Usage](#usage)
+- [Auto Mode (Temperature Indicator)](#auto-mode-temperature-indicator)
+- [Fan Curve & Fan Reminder](#fan-curve--fan-reminder)
+- [Windows Status](#windows-status)
+- [Protocol Documentation](#protocol-documentation)
+- [Contributing](#contributing)
+- [Authors](#authors)
+- [License](#license)
 
 ## Features
 
-- **CLI** (`llano-v12ultra-ctrl`): Farbe, Effekt, Effekt-Geschwindigkeit, Helligkeit **und
-  Lüfterdrehzahl** setzen, Gerät komplett ein-/ausschalten, Live-Telemetrie beobachten
-- **GUI** (`llano-v12ultra-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive Live-Status-Anzeige,
-  Fan-Speed-Regler und Steuerung des Automatik-Dienstes
-- **Echte Lüfterdrehzahl-Steuerung** (100 Stufen, ~25 U/min pro Schritt, 300-2800 U/min
-  Gesamtbereich): per Live-USB-Capture gegen die echte Hersteller-App gefunden (siehe
-  [Hardware-Hintergrund](#hardware-hintergrund)) und live auf echter Hardware verifiziert - jeder
-  einzelne der 100 Rohwerte einzeln durchgetestet, kein physisches Rad-Drehen mehr nötig
-- **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
-  (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
-- **Lüfterkurve** (opt-in): bildet die CPU-Temperatur per linearer Interpolation zwischen frei
-  konfigurierbaren Punkten auf eine Lüfterdrehzahl ab - in der GUI als editierbare Tabelle
-  verfügbar, siehe [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung)
-- **RPM-Verlauf** in der GUI (kleine Live-Sparkline der letzten ~2 Minuten Lüfterdrehzahl)
-- **Lüfter-Erinnerung**: Desktop-Benachrichtigung, wenn die CPU heiß ist, aber die gemessene
-  Drehzahl niedrig bleibt - Übergangslösung, falls die Lüfterkurve (noch) nicht aktiviert ist
-- **CSV-Verlaufsprotokoll** (Temperatur/RPM/Farbe über Zeit), opt-in, für spätere Auswertung
-- **Kritisch-heiß-Alarm**: hohe Temperatur-Schwellen können statt nur einer anderen Farbe auch
-  einen auffälligeren Effekt setzen (z.B. `chase`/Lauflicht)
-- Keine externen HID-Bibliotheken nötig: direkte `HIDIOCGFEATURE`/`HIDIOCSFEATURE`-ioctls auf
+- **CLI** (`llano-v12ultra-ctrl`): set color, effect, effect speed, brightness **and fan speed**,
+  fully power the device on/off, watch live telemetry
+- **GUI** (`llano-v12ultra-ctrl-gui`, PyQt6): the same functionality graphically, including a
+  compact status table, a separate RPM history, a fan speed slider, control of the auto-mode
+  service, and up to five saveable profiles (light + fan speed, one click to apply)
+- **Real fan speed control** (100 steps, ~25 RPM per step, 300-2800 RPM total range): found via
+  live USB capture against the real manufacturer app (see
+  [Hardware Background](#hardware-background)) and live-verified on real hardware - every single
+  one of the 100 raw values individually tested, no more physical wheel-turning needed
+- **Auto mode**: RGB color (and optionally effect) switches based on CPU/GPU temperature (a visual
+  temperature indicator right on the pad), optionally as a background systemd user service
+- **Fan curve** (opt-in): maps CPU temperature via linear interpolation between freely
+  configurable points onto a fan speed - available in the GUI as an interactive graph
+  (drag/add/remove points), precise numeric values optionally via "Advanced Settings", see
+  [Fan Curve & Fan Reminder](#fan-curve--fan-reminder)
+- **RPM history** in the GUI (a small live sparkline of the last ~2 minutes of fan speed)
+- **Fan reminder**: desktop notification when the CPU is hot but the measured speed stays low -
+  a stopgap while the fan curve isn't enabled (yet)
+- **CSV history log** (temperature/RPM/color over time), opt-in, for later analysis
+- **Critical-heat alert**: high temperature thresholds can set a more noticeable effect instead of
+  just a different color (e.g. `chase`)
+- No external HID libraries needed: direct `HIDIOCGFEATURE`/`HIDIOCSFEATURE` ioctls on
   `/dev/hidraw*`
-- Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)),
-  inklusive Diagnose-Befehl für den rohen 64-Byte Input-Report (`llano-v12ultra-ctrl raw-input`)
+- Fully documented HID protocol (see [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)),
+  including a diagnostic command for the raw 64-byte input report (`llano-v12ultra-ctrl raw-input`)
 
-## Hardware-Hintergrund
+## Hardware Background
 
-Software-steuerbar sind: Lüfterdrehzahl (raw-Bereich 1-100, ca. 25 U/min pro Schritt, insgesamt
-300-2800 U/min), RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit, Helligkeit,
-sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht). Werte über 100 nimmt
-das Gerät zwar noch an, die echte Drehzahl bleibt ab dem Maximum aber stehen - nur die Anzeige
-rechnet ohne Begrenzung weiter. Das physische Rad am Pad funktioniert weiterhin parallel als
-manuelle Override-Möglichkeit.
+Software-controllable: fan speed (raw range 1-100, roughly 25 RPM per step, 300-2800 RPM total),
+RGB color (5 colors), light effect (5 modes), effect speed, brightness, plus a pure on/off kill
+switch for the whole unit (fan + light). The device still accepts values above 100, but the real
+speed stays put once it hits the maximum - only the display keeps counting up unbounded. The
+physical wheel on the pad keeps working in parallel as a manual override.
 
-Lüfterdrehzahl und Licht sind zwei komplett getrennte HID-Kommandos (siehe
-[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) für das vollständige Byte-Layout). Wie das
-Fan-Kommando gefunden wurde, inklusive aller Sackgassen unterwegs, steht in
-[HISTORY.md](HISTORY.md).
+Fan speed and light are two completely separate HID commands (see
+[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) for the full byte layout). How the fan command
+was found, including every dead end along the way, is in [HISTORY.md](HISTORY.md).
 
-Der Automatikmodus (siehe unten) kann optional auch die Lüfterdrehzahl temperaturbasiert regeln
-(Lüfterkurve, standardmäßig deaktiviert) - siehe
-[Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung).
+Auto mode (see below) can optionally also control fan speed based on temperature (fan curve,
+disabled by default) - see [Fan Curve & Fan Reminder](#fan-curve--fan-reminder).
 
 ## Installation
 
-PyQt6 ist auf vielen Systemen (auch hier) ein **apt/Distro-Paket**, kein pip-Paket. Ein simples
-`pip install -e .` scheitert dadurch häufig an PEP 668 (`externally-managed-environment`). Zwei
-Wege, je nach System:
+PyQt6 is a **apt/distro package** on many systems (including this one), not a pip package. A
+simple `pip install -e .` therefore often fails on PEP 668
+(`externally-managed-environment`). Two paths, depending on your system:
 
 <details>
-<summary><strong>Weg A: System mit PyQt6 aus der Paketverwaltung (z.B. Debian/Ubuntu)</strong></summary>
+<summary><strong>Path A: system with PyQt6 from the package manager (e.g. Debian/Ubuntu)</strong></summary>
 
 ```bash
-sudo apt install python3-pyqt6   # falls noch nicht vorhanden
+sudo apt install python3-pyqt6   # if not already present
 ```
 
-Danach entweder die mitgelieferten Shim-Skripte verwenden oder das Paket per venv mit
-`--system-site-packages` installieren, damit das apt-Paket sichtbar bleibt:
+Then either use the bundled shim scripts, or install the package via a venv with
+`--system-site-packages`, so the apt package stays visible:
 
 ```bash
 python3 -m venv --system-site-packages .venv
@@ -98,19 +109,19 @@ python3 -m venv --system-site-packages .venv
 </details>
 
 <details>
-<summary><strong>Weg B: normales pip/pipx (andere Systeme)</strong></summary>
+<summary><strong>Path B: plain pip/pipx (other systems)</strong></summary>
 
 ```bash
 pipx install ".[gui]"
-# oder nur die CLI, ohne GUI/PyQt6-Abhängigkeit:
+# or just the CLI, without the GUI/PyQt6 dependency:
 pipx install .
 ```
 
 </details>
 
-### udev-Regel
+### udev rule
 
-Damit der eigene Linux-Nutzer ohne root auf das HID-Gerät zugreifen darf:
+So your own Linux user can access the HID device without root:
 
 ```bash
 sudo cp packaging/70-llano-v12ultra-ctrl.rules /etc/udev/rules.d/
@@ -118,51 +129,63 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
-Der Nutzer muss außerdem Mitglied der Gruppe `plugdev` sein:
+The user also needs to be a member of the `plugdev` group:
 
 ```bash
-sudo usermod -aG plugdev "$USER"   # danach neu einloggen
+sudo usermod -aG plugdev "$USER"   # log out and back in afterwards
 ```
 
-## Nutzung
+## Language
+
+CLI and GUI default to English. German can be selected via:
+
+- the language dropdown at the top of the GUI (writes to the config, takes effect after
+  restarting the app)
+- `language = "de"` in the `[general]` section of `~/.config/llano-v12ultra-ctrl/config.toml`
+- the `LLANO_LANGUAGE=de` environment variable for a single call, without touching the config:
+  ```bash
+  LLANO_LANGUAGE=de llano-v12ultra-ctrl status
+  ```
+
+## Usage
 
 ```bash
-llano-v12ultra-ctrl status                                      # aktuellen Zustand + Live-Telemetrie anzeigen
-llano-v12ultra-ctrl light --color red --effect breathing         # Farbe/Effekt setzen
-llano-v12ultra-ctrl light --brightness 128                       # nur Helligkeit ändern
-llano-v12ultra-ctrl light --off                                  # Beleuchtung aus (Lüfter läuft weiter)
-llano-v12ultra-ctrl power off                                    # gesamte Einheit aus (Lüfter + Licht)
-llano-v12ultra-ctrl monitor                                       # Live-Telemetrie laufend anzeigen
-llano-v12ultra-ctrl raw-input                                      # rohen 64-Byte Input-Report beobachten (Diagnose)
-llano-v12ultra-ctrl fan-speed 50                                   # Lüfterdrehzahl setzen (1-100, siehe unten)
-llano-v12ultra-ctrl-gui                                           # grafische Oberfläche starten
+llano-v12ultra-ctrl status                                      # show current state + live telemetry
+llano-v12ultra-ctrl light --color red --effect breathing         # set color/effect
+llano-v12ultra-ctrl light --brightness 128                       # only change brightness
+llano-v12ultra-ctrl light --off                                  # turn off the light (fan keeps running)
+llano-v12ultra-ctrl power off                                    # turn off the whole unit (fan + light)
+llano-v12ultra-ctrl monitor                                       # continuously show live telemetry
+llano-v12ultra-ctrl raw-input                                      # watch raw 64-byte input report (diagnostic)
+llano-v12ultra-ctrl fan-speed 50                                   # set fan speed (1-100, see below)
+llano-v12ultra-ctrl-gui                                           # launch the graphical interface
 ```
 
-`fan-speed` setzt die Lüfterdrehzahl über ein eigenes HID-Kommando (Wertebereich `1`-`100`, jeder
-Wert eine eigene Stufe von ca. 25 U/min: `raw=1` → 300 U/min, `raw=100` → 2800 U/min). Live
-verifiziert, jeder einzelne der 100 Werte einzeln getestet (siehe
-[Hardware-Hintergrund](#hardware-hintergrund)). Auch in der GUI als eigener Fan-Speed-Regler
-verfügbar.
+`fan-speed` sets the fan speed via a dedicated HID command (range `1`-`100`, every value its own
+step of roughly 25 RPM: `raw=1` → 300 RPM, `raw=100` → 2800 RPM). Live-verified, every single one
+of the 100 values individually tested (see [Hardware Background](#hardware-background)). Also
+available in the GUI as its own fan speed slider.
 
-| Option | Werte |
+| Option | Values |
 |---|---|
-| `--color` | `red`, `lightblue`, `green`, `purple`, `orange` (oder 0-4) |
-| `--effect` | `solid`, `breathing`, `rainbow`, `chase`, `zones` (oder 0-4) |
-| `--speed` | `0`-`3` (offiziell validierter Bereich, 0=schnell) |
+| `--color` | `red`, `lightblue`, `green`, `purple`, `orange` (or 0-4) |
+| `--effect` | `solid`, `breathing`, `rainbow`, `chase`, `zones` (or 0-4) |
+| `--speed` | `0`-`3` (officially validated range, 0=fast) |
 | `--brightness` | `0`-`255` |
 
-Details zu allen Optionen: `llano-v12ultra-ctrl <befehl> --help`.
+Details on all options: `llano-v12ultra-ctrl <command> --help`.
 
-## Automatikmodus (Temperatur-Indikator)
+## Auto Mode (Temperature Indicator)
 
 ```bash
-cp config/config.example.toml ~/.config/llano-v12ultra-ctrl/config.toml   # anpassen nach Bedarf
+cp config/config.example.toml ~/.config/llano-v12ultra-ctrl/config.toml   # adjust as needed
 llano-v12ultra-ctrl auto
 ```
 
-Schaltet die Pad-Farbe je nach CPU-Temperatur um (grün → orange → rot), mit optionalem
-GPU-Temperatur-Alarm (lila/breathing), siehe Kommentare in
-[`config/config.example.toml`](config/config.example.toml). Für Dauerbetrieb als systemd-User-Service:
+Switches the pad color based on CPU temperature (green → orange → red), with an optional GPU
+temperature alert (purple/breathing), see the comments in
+[`config/config.example.toml`](config/config.example.toml). For continuous operation as a systemd
+user service:
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -171,71 +194,85 @@ systemctl --user daemon-reload
 systemctl --user enable --now llano-v12ultra-ctrl.service
 ```
 
-Die GUI zeigt den Auto-Modus-Status an und kann den Dienst für die laufende Sitzung
-pausieren/fortsetzen (`systemctl --user stop/start`). Der Dienst bleibt dabei `enabled` und läuft
-nach dem nächsten Login/Neustart normal weiter.
+The GUI shows the auto-mode status and can pause/resume the service for the current session
+(`systemctl --user stop/start`). The service stays `enabled` and runs normally again after the
+next login/restart.
 
-## Lüfterkurve & Lüfter-Erinnerung
+On Windows, the GUI automatically registers a scheduled task on the first "Resume" click
+(`schtasks`, trigger "at logon", no admin needed) instead of a real Windows service - see
+[Windows Status](#windows-status). **Prerequisite for temperature detection:**
+[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) must be
+running with its WMI export enabled - without it, `auto` aborts immediately with "No CPU
+temperature sensor found" (confirmed live).
 
-Alle drei Optionen leben im `auto`-Modus (siehe oben) und sind standardmäßig deaktiviert.
-Aktivierung in `~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
-[`config/config.example.toml`](config/config.example.toml) - oder in der GUI im Bereich
-"Lüfterkurve (Automatikmodus)" (editierbare Tabelle, Punkte hinzufügen/entfernen, Speichern).
+## Fan Curve & Fan Reminder
 
-**Lüfterkurve** (`[auto.fan_curve]`): bildet die CPU-Temperatur per linearer Interpolation
-zwischen konfigurierten `points` (`temp_c`/`raw`-Paare) auf einen Lüfterdrehzahl-Rohwert ab.
-`min_change_raw` verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen - es wird nur
-geschrieben, wenn sich der Zielwert um mindestens so viel ändert. Wirkt nur, während `auto` läuft;
-das GUI-Formular speichert nur die Konfiguration, wendet sie nicht selbst live an.
+All three options live inside `auto` mode (see above) and are disabled by default. Enable them in
+`~/.config/llano-v12ultra-ctrl/config.toml`, see the commented examples in
+[`config/config.example.toml`](config/config.example.toml) - or in the GUI's "Fan Curve (Auto
+Mode)" section (drag points with the mouse to add/move/remove; precise numeric values via
+"Advanced Settings").
 
-**Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
-(`notify-send`), wenn die CPU-Temperatur `temp_c` erreicht, die gemessene Drehzahl aber unter
-`min_rpm` bleibt. `cooldown_s` verhindert wiederholte Benachrichtigungen, solange die Bedingung
-anhält. Übergangslösung, falls die Lüfterkurve (noch) nicht aktiviert ist.
+**Fan curve** (`[auto.fan_curve]`): maps CPU temperature via linear interpolation between
+configured `points` (`temp_c`/`raw` pairs) onto a fan speed raw value. `min_change_raw` prevents
+constantly re-adjusting on small temperature fluctuations - it only writes when the target value
+changes by at least this much. Only takes effect while `auto` is running; the GUI form only saves
+the configuration, it doesn't apply it live itself.
 
-**Verlaufsprotokoll** (`[auto.log]`): schreibt bei aktivem `auto`-Modus fortlaufend eine
-CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an den konfigurierten
-`path`. Nützlich, um im Nachhinein die eigene Lüfterkurve anhand echter Lastdaten zu verfeinern.
+**Fan reminder** (`[auto.fan_reminder]`): sends a desktop notification (`notify-send`) when the CPU
+temperature reaches `temp_c` but the measured speed stays below `min_rpm`. `cooldown_s` prevents
+repeated notifications while the condition persists. A stopgap while the fan curve isn't enabled
+(yet).
 
-## Windows-Status
+**History log** (`[auto.log]`): continuously writes a CSV line (timestamp, CPU/GPU temperature,
+fan speed, color, effect) to the configured `path` while `auto` mode is active. Useful for later
+refining your own fan curve based on real load data.
 
-| Datei | Status |
+## Windows Status
+
+| File | Status |
 |---|---|
-| `device.py` | ✅ Live gegen echte Hardware unter Windows 10 getestet (`status`/`light`/`fan-speed`), Lese- und Schreibpfad funktionieren. Braucht zusätzlich die native `hidapi.dll` (nicht im PyPI-Paket `hid` enthalten) irgendwo im DLL-Suchpfad, z.B. neben `python.exe` - Download unter [github.com/libusb/hidapi/releases](https://github.com/libusb/hidapi/releases) |
-| `notify.py` | ✅ Auf `plyer` umgestellt (cross-platform), live unter Linux getestet |
-| `temp.py` | ⏳ Windows-Zweig für CPU-Temperatur über LibreHardwareMonitor/WMI vorhanden, **noch nicht live getestet** |
-| `gui/service_control.py` | ⏳ Windows-Zweig über `schtasks` (geplante Aufgabe) vorhanden, **noch nicht live getestet** |
+| `device.py` | ✅ Live-tested against real hardware on Windows 10 (`status`/`light`/`fan-speed`), both the read and write path work. Additionally needs the native `hidapi.dll` (not included in the PyPI package `hid`) somewhere in the DLL search path, e.g. next to `python.exe` - download at [github.com/libusb/hidapi/releases](https://github.com/libusb/hidapi/releases) |
+| `notify.py` | ✅ Switched to `plyer` (cross-platform), live-tested on Linux |
+| `temp.py` | ⚠️ Live-tested - the code works, but correctly aborts with a clear error message without [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) running (WMI export enabled). LibreHardwareMonitor itself wasn't installed on the test machine - the full auto-mode control loop with real temperature values is therefore not yet verified end to end |
+| `gui/service_control.py` | ✅ Live-tested - the `schtasks` branch registers the scheduled task automatically when needed (`start()`/`stop()`/`is_active()` confirmed error-free). An encoding bug reading `schtasks` output on a German-language Windows install (cp1252 vs. the actual console codepage) was found and fixed along the way |
 
-Rückmeldungen von Windows-Nutzern zu den beiden noch ungetesteten Zweigen sind willkommen (siehe
-[Beitragen](#beitragen)).
+Feedback from Windows users, especially with LibreHardwareMonitor running, is welcome (see
+[Contributing](#contributing)).
 
-## Protokoll-Dokumentation
+## Protocol Documentation
 
-Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
-Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
-Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py). Der
-komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei Reports,
-keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature (vollständig
-reverse-engineered, inklusive des separaten Fan-Speed-Kommandos). Wie diese Herleitung entstanden
-ist, steht in [HISTORY.md](HISTORY.md). `llano-v12ultra-ctrl raw-input` erlaubt weiteres manuelles
-Beobachten des Input-Reports.
+The complete derivation of the 9-byte HID feature report (which byte means what, what's
+software-writable vs. a pure telemetry field, measurement series for edge cases) lives as a
+docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py). The
+complete HID report descriptor was read out and confirmed: the device has exactly three reports,
+no further hidden report IDs - 64-byte input, 64-byte output, 8-byte feature (fully
+reverse-engineered, including the separate fan speed command). How this derivation came about is
+in [HISTORY.md](HISTORY.md). `llano-v12ultra-ctrl raw-input` allows further manual observation of
+the input report.
 
-## Beitragen
+## Contributing
 
-Issues und Pull Requests sind willkommen, insbesondere Rückmeldungen zu anderen llano-V12-Varianten
-oder zusätzlichen effect/color-Werten wären hilfreich. Bitte beim Ändern von `protocol.py`/`device.py`
-Messreihen/Belege für neue Erkenntnisse mitliefern, analog zum bestehenden Dokumentationsstil.
+Issues and pull requests are welcome, feedback on other llano V12 variants or additional
+effect/color values would especially help. When changing `protocol.py`/`device.py`, please include
+measurement series/evidence for new findings, matching the existing documentation style.
 
-**macOS ist nicht geplant** - das Pad ist explizit nicht für den Einsatz an Mac-Geräten geeignet.
+**macOS is not planned** - the pad is explicitly not suited for use on Mac devices.
 
-**Primär gepflegt wird Linux.** Windows-Unterstützung ist ein nachträglich hinzugefügtes Ziel, keine
-gleichrangige Plattform - Rückmeldungen/PRs dazu sind trotzdem willkommen, haben aber nicht dieselbe
-Priorität wie der Linux-Kernbetrieb.
+**Linux is the primary maintained platform.** Windows support is an add-on goal, not an equal
+platform - feedback/PRs on it are still welcome, but don't carry the same priority as core Linux
+operation.
 
-## Autoren
+## Authors
 
 - [**@Quahuay**](https://github.com/Quahuay) (Maintainer)
 
-## Lizenz
+## License
 
-MIT, siehe [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
+
+---
+
+*Independent community project, no connection to the manufacturer/distributor of the llano brand*
+*or of Myth.Cool. Mentioned brand names are only for recognizability, see*
+*[Trademark Notice](#trademark-notice).*

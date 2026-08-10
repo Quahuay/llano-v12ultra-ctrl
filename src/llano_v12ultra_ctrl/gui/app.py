@@ -10,6 +10,13 @@ import sys
 def main():
     from PyQt6.QtWidgets import QApplication
 
+    from .. import i18n
+
+    # VOR dem Import von main_window, damit dessen Widget-Aufbau (Labels,
+    # Button-Texte, ...) von Anfang an die richtige Sprache sieht - siehe
+    # cli.py main() für dieselbe Reihenfolge-Überlegung.
+    i18n.init_language()
+
     from .main_window import MainWindow
 
     app = QApplication(sys.argv)

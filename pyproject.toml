@@ -5,15 +5,15 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llano-v12ultra-ctrl"
 version = "0.1.0"
-description = "Native Linux-Steuerung für das llano V12 Ultra USB-HID Kühlpad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6-GUI"
+description = "Native Linux control tool for the llano V12 Ultra USB-HID cooling pad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6 GUI"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Quahuay" }]
 dependencies = [
-    "plyer>=2.1",              # cross-platform Desktop-Notifications (notify.py, fan_reminder)
-    "wmi>=1.5; sys_platform=='win32'",  # CPU-Temp unter Windows via LibreHardwareMonitor (temp.py) - UNGETESTET
-    "hid>=1.0.5; sys_platform=='win32'",  # _WindowsDevice in device.py (Linux nutzt bewusst rohe ioctls statt hidapi)
+    "plyer>=2.1",              # cross-platform desktop notifications (notify.py, fan_reminder)
+    "wmi>=1.5; sys_platform=='win32'",  # CPU temp on Windows via LibreHardwareMonitor (temp.py) - needs LibreHardwareMonitor running, see README Windows Status
+    "hid>=1.0.5; sys_platform=='win32'",  # _WindowsDevice in device.py (Linux deliberately uses raw ioctls instead of hidapi)
 ]
 
 [project.optional-dependencies]

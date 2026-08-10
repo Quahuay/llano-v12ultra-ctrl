@@ -26,6 +26,7 @@ Implementierungen tauschen exakt das gleiche 9-Byte-Feature-Report-Layout
 
 import sys
 
+from . import i18n
 from . import protocol
 
 VID_INT = 0x374A
@@ -55,10 +56,7 @@ class _LinuxDevice:
         self._os = os
         self.path = path or self._find_hidraw_node(glob)
         if not self.path:
-            raise DeviceNotFoundError(
-                "llano V12 Ultra (374a:b101) nicht gefunden. "
-                "Ist das Pad angeschlossen und die udev-Regel installiert?"
-            )
+            raise DeviceNotFoundError(i18n.t("device.not_found_linux"))
         self._fd = os.open(self.path, os.O_RDWR)
 
     def _find_hidraw_node(self, glob):
@@ -173,9 +171,7 @@ class _WindowsDevice:
         try:
             self._dev = hid.Device(vid=VID_INT, pid=PID_INT)
         except hid.HIDException as e:
-            raise DeviceNotFoundError(
-                "llano V12 Ultra (374a:b101) nicht gefunden. Ist das Pad angeschlossen?"
-            ) from e
+            raise DeviceNotFoundError(i18n.t("device.not_found_windows")) from e
         self.path = f"hid:{VID_INT:04x}:{PID_INT:04x}"
 
     def close(self):

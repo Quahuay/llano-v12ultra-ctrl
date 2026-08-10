@@ -6,6 +6,13 @@ import tomllib
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.config/llano-v12ultra-ctrl/config.toml")
 
 DEFAULT_CONFIG = {
+    "general": {
+        # Sprache für CLI/GUI-Texte. None/"en" = Englisch (Standard), "de" =
+        # Deutsch. Kann pro Aufruf zusätzlich über die Umgebungsvariable
+        # LLANO_LANGUAGE überschrieben werden (siehe i18n.py) - praktisch
+        # für einen einzelnen Aufruf, ohne die Config dauerhaft zu ändern.
+        "language": "en",
+    },
     "auto": {
         "temp_sensor": None,  # None = automatisch erkennen (coretemp/k10temp)
         "poll_interval_s": 5,
@@ -76,7 +83,7 @@ DEFAULT_CONFIG = {
 
 def load_config(path=None):
     path = path or DEFAULT_CONFIG_PATH
-    cfg = {"auto": dict(DEFAULT_CONFIG["auto"])}
+    cfg = {"general": dict(DEFAULT_CONFIG["general"]), "auto": dict(DEFAULT_CONFIG["auto"])}
     cfg["auto"]["thresholds"] = [dict(t) for t in DEFAULT_CONFIG["auto"]["thresholds"]]
     cfg["auto"]["gpu_alert"] = dict(DEFAULT_CONFIG["auto"]["gpu_alert"])
     cfg["auto"]["fan_reminder"] = dict(DEFAULT_CONFIG["auto"]["fan_reminder"])
@@ -86,6 +93,8 @@ def load_config(path=None):
     if os.path.exists(path):
         with open(path, "rb") as f:
             user_cfg = tomllib.load(f)
+        if "general" in user_cfg:
+            cfg["general"].update(user_cfg["general"])
         if "auto" in user_cfg:
             cfg["auto"].update(user_cfg["auto"])
     return cfg
@@ -138,3 +147,36 @@ def save_fan_curve(enabled, points, min_change_raw=3, path=None):
 
 def sorted_points_for_save(points):
     return sorted(points, key=lambda p: p["temp_c"])
+
+
+def save_language(language, path=None):
+    """Schreibt (nur) den [general]-Abschnitt in die Config-Datei, nach
+    demselben Textersetzungs-Muster wie save_fan_curve - siehe dort für die
+    Begründung (tomllib kann nur lesen, der Rest der Datei bleibt
+    unverändert)."""
+    path = path or DEFAULT_CONFIG_PATH
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    block = f'[general]\nlanguage = "{language}"\n'
+
+    existing = ""
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            existing = f.read()
+
+    if "[general]" in existing:
+        before, _, after = existing.partition("[general]")
+        rest_lines = after.split("\n")
+        cut = len(rest_lines)
+        for i, line in enumerate(rest_lines[1:], start=1):
+            if line.startswith("["):
+                cut = i
+                break
+        after = "\n".join(rest_lines[cut:])
+        new_content = before + block + after
+    else:
+        sep = "\n" if existing and not existing.endswith("\n") else ""
+        new_content = existing + sep + ("\n" if existing else "") + block
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(new_content)

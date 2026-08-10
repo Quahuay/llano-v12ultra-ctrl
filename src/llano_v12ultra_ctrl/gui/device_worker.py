@@ -8,6 +8,7 @@ nicht in jedem Button-/Timer-Handler wiederholen muss.
 """
 
 from .. import device as device_mod
+from .. import i18n
 
 
 def try_open():
@@ -19,7 +20,7 @@ def try_open():
     except device_mod.DeviceNotFoundError as e:
         return None, str(e)
     except OSError as e:
-        return None, f"Gerätefehler beim Öffnen: {e}"
+        return None, i18n.t("device.open_error", error=e)
 
 
 def safe_call(dev, fn):
@@ -32,4 +33,4 @@ def safe_call(dev, fn):
     except device_mod.DeviceNotFoundError as e:
         return None, str(e)
     except OSError as e:
-        return None, f"Gerätefehler (evtl. abgesteckt): {e}"
+        return None, i18n.t("device.call_error", error=e)

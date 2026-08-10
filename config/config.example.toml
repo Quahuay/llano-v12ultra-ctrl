@@ -1,22 +1,27 @@
-# Beispiel-Konfiguration für `llano-v12ultra-ctrl auto`.
-# Nach ~/.config/llano-v12ultra-ctrl/config.toml kopieren und nach Bedarf anpassen.
+# Example configuration for `llano-v12ultra-ctrl auto`.
+# Copy to ~/.config/llano-v12ultra-ctrl/config.toml and adjust as needed.
 #
-# "auto" schaltet die RGB-Farbe (0=rot, 1=hellblau, 2=grün, 3=lila, 4=orange)
-# je nach CPU-Temperatur um - ein visueller Temperatur-Indikator direkt am
-# Pad. Zusätzlich gibt es unten einen eigenen GPU-Temperatur-Alarm (lila +
-# breathing-Effekt), der die CPU-Farblogik bei Bedarf übersteuert, sowie
-# optional (fan_curve, standardmäßig deaktiviert) eine echte
-# temperaturbasierte Lüfterdrehzahl-Regelung.
+# "auto" switches the RGB color (0=red, 1=lightblue, 2=green, 3=purple,
+# 4=orange) based on CPU temperature - a visual temperature indicator right
+# on the pad. There's also a separate GPU temperature alert below (purple +
+# breathing effect) that overrides the CPU color logic when needed, plus an
+# optional (fan_curve, disabled by default) real temperature-based fan speed
+# control.
+
+[general]
+# CLI/GUI language: "en" (default) or "de". Can also be overridden per call
+# via the LLANO_LANGUAGE environment variable without touching this file.
+language = "en"
 
 [auto]
-# null/auskommentiert = automatisch erkennen (coretemp "Package id 0" bzw. k10temp "Tctl"/"Tdie")
+# null/commented out = auto-detect (coretemp "Package id 0" or k10temp "Tctl"/"Tdie")
 # temp_sensor = "/sys/class/hwmon/hwmon10/temp1_input"
 poll_interval_s = 5
 hysteresis_c = 3
 
 [[auto.thresholds]]
 temp_c = 0
-color = 2   # grün = kühl
+color = 2   # green = cool
 
 [[auto.thresholds]]
 temp_c = 55
@@ -24,72 +29,71 @@ color = 4   # orange = warm
 
 [[auto.thresholds]]
 temp_c = 70
-color = 0   # rot = heiß
+color = 0   # red = hot
 
-# effect/speed sind optional (Default: 0=solid, 0=schnell). Eine hohe
-# Schwelle kann so statt nur eine andere Farbe auch einen auffälligeren
-# Effekt setzen, z.B. chase (3) als deutlich sichtbaren Kritisch-Alarm.
+# effect/speed are optional (default: 0=solid, 0=fast). A high threshold can
+# use this to set a more noticeable effect instead of just a different
+# color, e.g. chase (3) as a clearly visible critical alert.
 [[auto.thresholds]]
 temp_c = 85
-color = 0    # rot
-effect = 3   # chase (Lauflicht)
-speed = 0    # 0=schnell
+color = 0    # red
+effect = 3   # chase
+speed = 0    # 0=fast
 
-# GPU-Temperatur-Alarm: übersteuert die obige CPU-Farblogik mit lila
-# (color=3) + breathing (effect=1), sobald die GPU >= temp_c UND
-# mindestens so heiß wie die aktuelle CPU ist ("wer wärmer ist gewinnt").
-# Fällt die GPU-Temperatur unter (temp_c - hysteresis_c), springt der
-# Daemon wieder zur normalen CPU-Farblogik zurück. Quelle: nvidia-smi.
+# GPU temperature alert: overrides the CPU color logic above with purple
+# (color=3) + breathing (effect=1) once the GPU is >= temp_c AND at least as
+# hot as the current CPU temperature ("whichever is hotter wins"). Once the
+# GPU temperature drops below (temp_c - hysteresis_c), the daemon falls back
+# to the normal CPU color logic. Source: nvidia-smi.
 [auto.gpu_alert]
 enabled = true
 temp_c = 87
 hysteresis_c = 5
-color = 3    # lila
+color = 3    # purple
 effect = 1   # breathing
-speed = 0    # 0=schnell (offizieller Bereich 0-3)
+speed = 0    # 0=fast (officially used range 0-3)
 
-# Lüfter-Erinnerung: schickt eine Desktop-Notification (notify-send), wenn
-# die CPU >= temp_c ist, aber die gemessene Drehzahl unter min_rpm bleibt.
-# Nützlich als Übergangslösung, solange fan_curve (s.u.) nicht aktiviert
-# ist. cooldown_s verhindert Spam, solange die Bedingung anhält.
+# Fan reminder: sends a desktop notification when the CPU is >= temp_c but
+# the measured speed stays below min_rpm. Useful as a stopgap while
+# fan_curve (below) isn't enabled. cooldown_s prevents spamming while the
+# condition persists.
 [auto.fan_reminder]
 enabled = false
 temp_c = 75
 min_rpm = 1500
 cooldown_s = 300
 
-# Lüfterkurve: bildet die CPU-Temperatur per stückweise linearer
-# Interpolation auf einen fan_speed-Rohwert (1-100, ca. 25 U/min pro
-# Schritt, siehe protocol.py NACHTRAG 8/9) ab. Punkte müssen nach temp_c
-# nicht sortiert in der Datei stehen, werden aber intern sortiert.
-# Unterhalb des niedrigsten bzw. oberhalb des höchsten Punkts wird der
-# jeweilige Randwert gehalten (kein Extrapolieren). min_change_raw
-# verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen -
-# es wird nur geschrieben, wenn sich der Zielwert um mindestens so viel
-# ändert. Standardmäßig deaktiviert (opt-in).
+# Fan curve: maps CPU temperature to a fan_speed raw value (1-100, roughly
+# 25 RPM per step, see protocol.py NACHTRAG 8/9) via piecewise linear
+# interpolation. Points don't need to be sorted by temp_c in the file, they
+# get sorted internally. Below the lowest / above the highest point, the
+# respective edge value is held (no extrapolation). min_change_raw prevents
+# constantly re-adjusting on small temperature fluctuations - it only
+# writes when the target value changes by at least this much. Disabled
+# (opt-in) by default.
 [auto.fan_curve]
 enabled = false
 min_change_raw = 3
 
 [[auto.fan_curve.points]]
 temp_c = 30
-raw = 1      # 300 U/min
+raw = 1      # 300 RPM
 
 [[auto.fan_curve.points]]
 temp_c = 50
-raw = 30     # ca. 1050 U/min
+raw = 30     # approx. 1050 RPM
 
 [[auto.fan_curve.points]]
 temp_c = 70
-raw = 60     # ca. 1800 U/min
+raw = 60     # approx. 1800 RPM
 
 [[auto.fan_curve.points]]
 temp_c = 85
-raw = 100    # 2800 U/min
+raw = 100    # 2800 RPM
 
-# CSV-Verlaufsprotokoll (Zeitstempel/Temperaturen/RPM/Farbe/Effekt) für
-# spätere Auswertung, z.B. um eine passende Radstellung für typische
-# Lasten zu finden. Eine Zeile pro poll_interval_s.
+# CSV history log (timestamp/temperatures/RPM/color/effect) for later
+# analysis, e.g. to find a suitable wheel position for typical loads. One
+# line per poll_interval_s.
 [auto.log]
 enabled = false
 path = "~/.local/share/llano-v12ultra-ctrl/history.csv"

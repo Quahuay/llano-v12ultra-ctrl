@@ -1,62 +1,62 @@
-# Entwicklungsgeschichte: wie die Lüfterdrehzahl-Steuerung gefunden wurde
+# Development history: how fan speed control was found
 
-Diese Datei fasst zusammen, wie das Protokoll für `llano-v12ultra-ctrl` reverse-engineered wurde -
-inklusive der Sackgassen unterwegs. Für die reine Nutzung ist das nicht nötig, siehe stattdessen
-[README.md](README.md). Die vollständige Byte-für-Byte-Herleitung mit allen Messreihen steht als
-Nachtrag-Docstring in [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py).
+This file summarizes how the protocol for `llano-v12ultra-ctrl` was reverse-engineered - including
+the dead ends along the way. It's not needed for plain usage, see [README.md](README.md) instead.
+The full byte-by-byte derivation with all measurement series lives as an addendum docstring in
+[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py).
 
-## Ausgangslage
+## Starting point
 
-Das Pad hat keine Dokumentation zum HID-Protokoll. Ausgangspunkt war ein USB-Mitschnitt der
-offiziellen Windows-App (Myth.Cool) sowie der HID-Report-Descriptor des Geräts selbst (drei
-Reports: 64-Byte Input, 64-Byte Output, 8-Byte Feature).
+The pad has no documentation for its HID protocol. The starting point was a USB capture of the
+official Windows app (Myth.Cool), plus the device's own HID report descriptor (three reports:
+64-byte input, 64-byte output, 8-byte feature).
 
-## Licht, Farbe, Helligkeit: relativ schnell gefunden
+## Light, color, brightness: found relatively quickly
 
-Der 9-Byte-Feature-Report ließ sich über gezielte Vergleichstests (App-Einstellung ändern, Report
-vorher/nachher vergleichen) für Farbe, Effekt, Effekt-Geschwindigkeit, Helligkeit und einen
-Ein/Aus-Kill-Switch vollständig herleiten, inklusive der Checksummenformel.
+The 9-byte feature report could be fully derived through targeted comparison tests (change an app
+setting, compare the report before/after) for color, effect, effect speed, brightness, and an
+on/off kill switch, including the checksum formula.
 
-## Lüfterdrehzahl: die lange Sackgasse
+## Fan speed: the long dead end
 
-Die App zeigt eine volle RPM-Auswahl-UI (AI Low/Medium/High-Modi, eine Custom-Fan-Curve, Manual
-Mode über das physische Rad). Der naheliegende erste Ansatz - ein zusätzliches Byte im
-Licht-Report mitschreiben, das in echten App-Mitschnitten mal ungleich 0 war - erwies sich als
-konsequent wirkungslos:
+The app shows a full RPM selection UI (AI Low/Medium/High modes, a custom fan curve, manual mode
+via the physical wheel). The obvious first approach - writing along an extra byte in the light
+report that was sometimes non-zero in real app captures - turned out to be consistently
+ineffective:
 
-- Ein originaler USB-Mitschnitt der echten App enthielt über 1300 reale SET_REPORT-Aufrufe, aber
-  keiner davon einen erkennbar gezielten Fan-Speed-Schreibversuch.
-- Ein vollständiger Fuzz aller Output-Report-Positionen (alle Byte-Positionen x alle Werte) zeigte
-  keine anhaltende Wirkung.
-- Eine statische Analyse von `MythCool.exe`/`GPP_USB_Center.exe` fand echten, funktionsfähig
-  aussehenden Code (`LJN_LAP_FAN`-Klasse, verarbeitet nachweislich ein `SetLapFanParam`/
-  `fan_speed`-Kommando aus dem JSON) - das Feature ist also softwareseitig real angelegt, aber der
-  genaue Übersetzungspfad zu USB blieb im Code nicht auffindbar.
-- Ein Live-Test unter Wine scheiterte an einem separaten Problem: die App erkennt das Gerät unter
-  Wine gar nicht.
-- Ein Live-Test in einer Windows-11-VM (echtes USB-Passthrough) erkannte das Gerät zwar korrekt und
-  zeigte die volle RPM-UI, aber auch dort kein einziger echter Fan-Speed-Schreibversuch - im
-  Nachhinein erklärbar, weil dabei nur die temperaturabhängigen AI-Modi angeklickt wurden (nicht
-  der manuelle Custom-Modus) und weil eine VM ohnehin keine echten, sich ändernden Sensorwerte
-  liefert, die die AI-Logik zum Nachrechnen bringen würden.
+- An original USB capture of the real app contained over 1300 real SET_REPORT calls, but none of
+  them a recognizably targeted fan speed write attempt.
+- A full fuzz of all output report positions (every byte position x every value) showed no lasting
+  effect.
+- A static analysis of `MythCool.exe`/`GPP_USB_Center.exe` found real, functional-looking code (an
+  `LJN_LAP_FAN` class, demonstrably processing a `SetLapFanParam`/`fan_speed` command from JSON) -
+  so the feature is genuinely implemented in software, but the exact translation path to USB
+  couldn't be found in the code.
+- A live test under Wine failed on a separate problem: the app doesn't detect the device at all
+  under Wine.
+- A live test in a Windows 11 VM (real USB passthrough) correctly detected the device and showed
+  the full RPM UI, but there too, not a single real fan speed write attempt - explainable in
+  hindsight, since only the temperature-dependent AI modes were clicked (not manual custom mode),
+  and because a VM doesn't provide real, changing sensor values that would prompt the AI logic to
+  recompute anyway.
 
-## Der Durchbruch: echte Hardware, echter Klick im Custom-Modus
+## The breakthrough: real hardware, a real click in custom mode
 
-Ein SSH-fernsteuerbarer, echter (nicht virtueller) Windows-10-Rechner wurde aufgesetzt, USBPcap/
-Wireshark installiert und eine Live-Capture parallel zu manueller Bedienung der echten App
-mitgeschnitten - diesmal mit einer selbst gesetzten Custom-Lüfterkurve statt der AI-Modi. Ergebnis:
-ein bis dahin unbeobachtetes, komplett eigenständiges HID-Kommando, klar unterscheidbar vom
-Licht-Kommando (andere Byte-0-Kennung, festes Unterkommando-Tag). Rückblickend war das der Grund,
-warum alle früheren Tests wirkungslos blieben: sie schrieben schlicht das falsche Kommando.
+An SSH-remotable, real (not virtual) Windows 10 machine was set up, USBPcap/Wireshark installed,
+and a live capture recorded alongside manually operating the real app - this time using a
+self-set custom fan curve instead of the AI modes. Result: a previously unobserved, completely
+standalone HID command, clearly distinguishable from the light command (a different byte-0 tag, a
+fixed subcommand tag). In hindsight, that's why every earlier test stayed ineffective: they simply
+wrote the wrong command.
 
-Live bestätigt - sowohl auf der Windows-Testmaschine als auch direkt am eigenen Linux-Gerät, über
-den gesamten Wertebereich einzeln durchgetestet (jeder der 100 möglichen Rohwerte einzeln, ca.
-25 U/min Auflösung pro Schritt).
+Confirmed live - both on the Windows test machine and directly on the Linux device itself,
+individually tested across the entire value range (each of the 100 possible raw values on its
+own, roughly 25 RPM resolution per step).
 
-## Nachträglich geprüft, aber nicht weiterverfolgt
+## Checked afterwards, but not pursued further
 
-- Werte über den dokumentierten Bereich hinaus (bis 255): Gerät nimmt sie an und zeigt sie an, aber
-  die echte Drehzahl bleibt ab dem dokumentierten Maximum stehen - nur die Telemetrie rechnet ohne
-  Begrenzung weiter.
-- Ob sich der Anzeigeinhalt des Pad-Displays selbst (nicht nur die angezeigte Zahl) gezielt
-  manipulieren lässt: kein bekanntes separates Kommando dafür gefunden, nicht weiterverfolgt.
+- Values beyond the documented range (up to 255): the device accepts and displays them, but the
+  real speed stays put once it reaches the documented maximum - only the telemetry keeps counting
+  up unbounded.
+- Whether the pad display's content itself (not just the displayed number) can be deliberately
+  manipulated: no known separate command found for this, not pursued further.
