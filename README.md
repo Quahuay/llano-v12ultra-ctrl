@@ -232,10 +232,10 @@ refining your own fan curve based on real load data.
 
 | File | Status |
 |---|---|
-| `device.py` | ✅ Live-tested against real hardware on Windows 10 (`status`/`light`/`fan-speed`), both the read and write path work. Additionally needs the native `hidapi.dll` (not included in the PyPI package `hid`) somewhere in the DLL search path, e.g. next to `python.exe` - download at [github.com/libusb/hidapi/releases](https://github.com/libusb/hidapi/releases) |
-| `notify.py` | ✅ Switched to `plyer` (cross-platform), live-tested on Linux |
-| `temp.py` | ⚠️ Live-tested - the code works, but correctly aborts with a clear error message without [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) running (WMI export enabled). LibreHardwareMonitor itself wasn't installed on the test machine - the full auto-mode control loop with real temperature values is therefore not yet verified end to end |
-| `gui/service_control.py` | ✅ Live-tested - the `schtasks` branch registers the scheduled task automatically when needed (`start()`/`stop()`/`is_active()` confirmed error-free). An encoding bug reading `schtasks` output on a German-language Windows install (cp1252 vs. the actual console codepage) was found and fixed along the way |
+| `device.py` |  Live-tested against real hardware on Windows 10 (`status`/`light`/`fan-speed`), both the read and write path work. Additionally needs the native `hidapi.dll` (not included in the PyPI package `hid`) somewhere in the DLL search path, e.g. next to `python.exe` - download at [github.com/libusb/hidapi/releases](https://github.com/libusb/hidapi/releases) |
+| `notify.py` | Switched to `plyer` (cross-platform), live-tested on Linux |
+| `temp.py` | Live-tested - the code works, but correctly aborts with a clear error message without [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) running (WMI export enabled). LibreHardwareMonitor itself wasn't installed on the test machine - the full auto-mode control loop with real temperature values is therefore not yet verified end to end |
+| `gui/service_control.py` | Live-tested - the `schtasks` branch registers the scheduled task automatically when needed (`start()`/`stop()`/`is_active()` confirmed error-free). An encoding bug reading `schtasks` output on a German-language Windows install (cp1252 vs. the actual console codepage) was found and fixed along the way |
 
 Feedback from Windows users, especially with LibreHardwareMonitor running, is welcome (see
 [Contributing](#contributing)).
