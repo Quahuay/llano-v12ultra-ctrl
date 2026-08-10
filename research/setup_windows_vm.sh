@@ -65,10 +65,14 @@ cmd_create() {
     exit 1
   fi
   echo "Erstelle VM '$VM_NAME' (${RAM_MB}MB RAM, ${VCPUS} vCPUs, ${DISK_SIZE_GB}GB Disk, UEFI+TPM2.0 fuer Windows 11)..."
+  # WICHTIG: sockets=1,cores=$VCPUS statt sockets=$VCPUS,cores=1 - Windows
+  # Home/Pro aktiviert nur 1-2 physische CPU-Sockel (Lizenzbeschraenkung),
+  # zeigt bei "N einzelne Sockel" also nur einen Kern nutzbar an, selbst
+  # wenn insgesamt N vCPUs zugewiesen sind.
   virt-install \
     --name "$VM_NAME" \
     --memory "$RAM_MB" \
-    --vcpus "$VCPUS" \
+    --vcpus "$VCPUS",sockets=1,cores="$VCPUS",threads=1 \
     --disk size="$DISK_SIZE_GB",format=qcow2 \
     --cdrom "$iso_path" \
     --os-variant win11 \
