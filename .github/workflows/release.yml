@@ -43,8 +43,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install FUSE (needed to run linuxdeploy/AppImages)
-        run: sudo apt-get update && sudo apt-get install -y libfuse2
+      - name: Install build deps (FUSE for linuxdeploy, EGL for Qt/PyQt6)
+        run: sudo apt-get update && sudo apt-get install -y libfuse2 libegl1
       - name: Build AppImage
         run: bash packaging/appimage/build.sh dist
       - uses: actions/upload-artifact@v4
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install build tools
         run: |
-          pacman -Sy --noconfirm base-devel python python-build python-installer python-wheel python-pyqt6 git
+          pacman -Sy --noconfirm base-devel python python-build python-installer python-wheel python-setuptools python-pyqt6 git
           useradd -m builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
       - name: Build package

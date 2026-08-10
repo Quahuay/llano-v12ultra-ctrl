@@ -20,7 +20,7 @@ depends=('python' 'python-pyqt6')
 optdepends=('python-plyer: desktop notifications for the fan-reminder auto-mode feature')
 makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/Quahuay/llano-v12ultra-ctrl/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')  # per Release mit `updpkgsums` aktualisieren
+sha256sums=('4c5ace4a8c08c83f2f1cf60bfff4bd493f67a1c9bee835ec022a66cdda0cbc03')
 
 build() {
     cd "$pkgname-$pkgver"
