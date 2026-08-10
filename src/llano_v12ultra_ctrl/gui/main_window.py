@@ -183,9 +183,9 @@ class MainWindow(QMainWindow):
 
         warning = QLabel(
             "Per Live-USB-Capture gegen die echte App gefundenes Fan-Kommando "
-            "(protocol.py NACHTRAG 8) - Wirkung auf echtem Windows vom Nutzer live "
-            "bestätigt (Drehzahl ändert sich hör-/sichtbar). Verifikation auf diesem "
-            "Linux-Gerät steht noch aus."
+            "(protocol.py NACHTRAG 8) - Wirkung live bestätigt, sowohl unter Windows "
+            "als auch hier auf Linux (Drehzahl ändert sich hör-/sichtbar über den "
+            "gesamten Bereich 1-100)."
         )
         warning.setWordWrap(True)
         warning.setStyleSheet("color: #808080; font-size: 11px;")

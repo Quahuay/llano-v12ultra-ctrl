@@ -471,10 +471,20 @@ Licht-Kommando nie verwendet und ist damit eindeutig/kollisionsfrei -
 Set-Befehle.
 
 `set_fan_speed()` in device.py wurde auf `build_fan_report()` umgestellt.
-Noch ausstehend: Live-Verifikation auf dem eigenen Linux-Gerät (Pad muss
-dafür vom Windows-Testrechner zurück an den Linux-Host gesteckt werden) -
-das HID-Protokoll ist plattformunabhängig, sollte also 1:1 funktionieren,
-aber unabhängige Bestätigung steht noch aus.
+
+**Live auf dem eigenen Linux-Gerät verifiziert (2026-08-10):** Pad zurück an
+den Linux-Host gesteckt, `llano-v12ultra-ctrl fan-speed <raw>` mit 50, 1 und
+100 getestet. Bei jedem Wert bestätigte der Nutzer eine hör-/sichtbar
+tatsächlich veränderte Drehzahl (raw=1 spürbar langsam, raw=100 "Vollgas").
+Report-Readback stimmte danach jeweils exakt mit dem gesetzten raw-Wert und
+der erwarteten U/min-Umrechnung überein (raw=1->300, raw=50->1500,
+raw=100->2800 U/min). Damit ist die Lüfterdrehzahlsteuerung nach monatelanger
+Untersuchung **endgültig als funktionierend bestätigt** - plattformunabhängig
+über beide Betriebssysteme hinweg nachgewiesen (Protokoll gefunden unter
+Windows, Wirkung bestätigt sowohl unter Windows als auch nativ unter Linux
+über HIDIOCSFEATURE). Die frühere "nachweislich wirkungslos"-Einschätzung
+(NACHTRAG 1-7) war korrekt für das getestete (falsche) Kommando, aber falsch
+als Aussage über die Hardware selbst.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum
