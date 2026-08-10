@@ -123,8 +123,15 @@ llano-v12ultra-ctrl light --off                                  # Beleuchtung a
 llano-v12ultra-ctrl power off                                    # gesamte Einheit aus (Lüfter + Licht)
 llano-v12ultra-ctrl monitor                                       # Live-Telemetrie laufend anzeigen
 llano-v12ultra-ctrl raw-input                                      # rohen 64-Byte Input-Report beobachten (Diagnose)
+llano-v12ultra-ctrl fan-speed 50                                   # experimentell, auf diesem Gerät wirkungslos (siehe unten)
 llano-v12ultra-ctrl-gui                                           # grafische Oberfläche starten
 ```
+
+`fan-speed` schreibt Byte 1 des Feature-Reports (Wertebereich 1-100). Auf dem llano V12 Ultra
+nachweislich wirkungslos - erschöpfend getestet (siehe
+[Protokoll-Dokumentation](#protokoll-dokumentation)) - aber forward-kompatibel vorbereitet, falls
+eine andere Firmware-Revision dieses Feld doch auswertet. Auch in der GUI als eigener,
+klar gekennzeichneter "Fan-Speed (experimentell)"-Regler verfügbar.
 
 | Option | Werte |
 |---|---|

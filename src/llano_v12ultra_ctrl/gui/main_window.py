@@ -69,6 +69,7 @@ class MainWindow(QMainWindow):
 
         root.addWidget(self._build_status_group())
         root.addWidget(self._build_control_group())
+        root.addWidget(self._build_fan_speed_group())
         root.addWidget(self._build_auto_group())
 
         self.statusBar().showMessage("Bereit")
@@ -174,6 +175,40 @@ class MainWindow(QMainWindow):
             self.light_off_button,
             self.power_button,
         ]
+        return box
+
+    def _build_fan_speed_group(self):
+        box = QGroupBox("Fan-Speed (experimentell)")
+        layout = QVBoxLayout(box)
+
+        warning = QLabel(
+            "Auf diesem Gerät (llano V12 Ultra, 374a:b101) nachweislich wirkungslos - "
+            "erschöpfend getestet (Sweep, Pcap-Analyse der Original-App, Analyse von "
+            "MythCool.exe). Nur für andere Firmware-Revisionen vorbereitet, die dieses "
+            "Feld eventuell auswerten. Details: protocol.py NACHTRAG 1-4."
+        )
+        warning.setWordWrap(True)
+        warning.setStyleSheet("color: #b8860b; font-size: 11px;")
+        layout.addWidget(warning)
+
+        row = QHBoxLayout()
+        self.fan_speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self.fan_speed_slider.setMinimum(1)
+        self.fan_speed_slider.setMaximum(100)
+        self.fan_speed_slider.setValue(1)
+        self.lbl_fan_speed_value = QLabel("1")
+        self.fan_speed_slider.valueChanged.connect(
+            lambda v: self.lbl_fan_speed_value.setText(str(v))
+        )
+        self.fan_speed_apply_button = QPushButton("Anwenden")
+        self.fan_speed_apply_button.clicked.connect(self._apply_fan_speed)
+        row.addWidget(self.fan_speed_slider)
+        row.addWidget(self.lbl_fan_speed_value)
+        row.addWidget(self.fan_speed_apply_button)
+        layout.addLayout(row)
+
+        self.controls.append(self.fan_speed_slider)
+        self.controls.append(self.fan_speed_apply_button)
         return box
 
     def _build_auto_group(self):
@@ -313,6 +348,23 @@ class MainWindow(QMainWindow):
         new_state = not self._last_report.power_on
         report, err = device_worker.safe_call(
             self._device, lambda dev: dev.set_power(power=new_state)
+        )
+        if report is None:
+            self._set_disconnected(err)
+            return
+        self._last_report = report
+        self._update_status_labels(report)
+
+    def _apply_fan_speed(self):
+        """Schreibt Byte 1 (fan_speed) - auf diesem Gerät nachweislich
+        wirkungslos, siehe protocol.py NACHTRAG 1-4. Forward-kompatibel
+        vorbereitet, falls eine andere Firmware-Revision dieses Feld
+        auswertet."""
+        if self._device is None:
+            return
+        raw = self.fan_speed_slider.value()
+        report, err = device_worker.safe_call(
+            self._device, lambda dev: dev.set_fan_speed(raw)
         )
         if report is None:
             self._set_disconnected(err)

@@ -64,6 +64,18 @@ def cmd_power(args):
     return 0
 
 
+def cmd_fan_speed(args):
+    print(
+        "Hinweis: auf diesem Gerät (llano V12 Ultra, 374a:b101) nachweislich wirkungslos "
+        "- siehe protocol.py NACHTRAG 1-4. Forward-kompatibel vorbereitet für andere "
+        "Firmware-Revisionen, die dieses Feld eventuell auswerten."
+    )
+    with device_mod.Device() as dev:
+        r = dev.set_fan_speed(args.raw)
+    print(f"Byte 1 (fan_speed) auf {args.raw} gesetzt (raw={r.raw.hex(' ')}) - Lüfterdrehzahl laut Report weiterhin {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
+    return 0
+
+
 def cmd_monitor(args):
     print("Beobachte Live-Telemetrie (Strg+C zum Beenden)...")
     last = None
@@ -224,6 +236,10 @@ def build_parser():
     p_power = sub.add_parser("power", help="Gesamte Einheit (Lüfter+Licht) komplett an/aus schalten - reiner Kill-Switch, keine Zwischenstufen")
     p_power.add_argument("state", choices=["on", "off"])
     p_power.set_defaults(func=cmd_power)
+
+    p_fan_speed = sub.add_parser("fan-speed", help="Byte 1 (fan_speed) des Feature-Reports schreiben - auf diesem Gerät nachweislich wirkungslos, forward-kompatibel vorbereitet (siehe protocol.py)")
+    p_fan_speed.add_argument("raw", type=int, help="1-100")
+    p_fan_speed.set_defaults(func=cmd_fan_speed)
 
     p_monitor = sub.add_parser("monitor", help="Live-Telemetrie laufend anzeigen")
     p_monitor.add_argument("--interval", type=float, default=0.3, help="Poll-Intervall in Sekunden (default 0.3)")
