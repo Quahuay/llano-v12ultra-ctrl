@@ -6,15 +6,16 @@
 
 > **Vollständig getestet nur unter Linux.** Eine Windows-Portierung ist in Arbeit (siehe
 > [Windows-Status](#windows-status)) - Temperatursensoren und Hintergrunddienst-Steuerung sind
-> bereits code-seitig vorbereitet (aber ungetestet, keine Windows-Maschine verfügbar), die
-> eigentliche Geräteansteuerung (`device.py`) läuft aktuell noch ausschließlich über
+> bereits code-seitig vorbereitet (aber ungetestet, keine eigene Windows-Maschine im Dauerbetrieb),
+> die eigentliche Geräteansteuerung (`device.py`) läuft aktuell noch ausschließlich über
 > Linux-spezifische `/dev/hidraw*`-ioctls.
 
 Natives Linux-Steuerungstool für das **llano V12 Ultra** RGB-Laptop-Kühlpad (Holtek USB-HID
 `374a:b101`), dessen offizielle Windows-Software **Myth.Cool** ist. Statt die Windows-App unter
 Wine laufen zu lassen (kaputte UI-Texte, nicht funktionierendes Sensor-Dashboard), spricht
 `llano-v12ultra-ctrl` das Gerät direkt über `/dev/hidraw*` an, reverse-engineered aus echtem USB-Traffic
-der Original-App und durch systematische Live-Tests am physischen Gerät.
+der Original-App und durch systematische Live-Tests am physischen Gerät - inklusive einer
+**echten, per Live-USB-Capture gefundenen Lüfterdrehzahl-Steuerung** (siehe unten).
 
 ## Inhaltsverzeichnis
 
@@ -32,16 +33,19 @@ der Original-App und durch systematische Live-Tests am physischen Gerät.
 
 ## Features
 
-- **CLI** (`llano-v12ultra-ctrl`): Farbe, Effekt, Effekt-Geschwindigkeit und Helligkeit setzen, Gerät
-  komplett ein-/ausschalten, Live-Telemetrie beobachten
-- **GUI** (`llano-v12ultra-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive Live-Status-Anzeige
-  und Steuerung des Automatik-Dienstes
+- **CLI** (`llano-v12ultra-ctrl`): Farbe, Effekt, Effekt-Geschwindigkeit, Helligkeit **und
+  Lüfterdrehzahl** setzen, Gerät komplett ein-/ausschalten, Live-Telemetrie beobachten
+- **GUI** (`llano-v12ultra-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive Live-Status-Anzeige,
+  Fan-Speed-Regler und Steuerung des Automatik-Dienstes
+- **Echte Lüfterdrehzahl-Steuerung** (26 Stufen, 300-2800 U/min): per Live-USB-Capture gegen die
+  echte Hersteller-App gefunden (siehe [Hardware-Hintergrund](#hardware-hintergrund)) und live auf
+  echter Hardware verifiziert - kein physisches Rad-Drehen mehr nötig
 - **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
   (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
 - **RPM-Verlauf** in der GUI (kleine Live-Sparkline der letzten ~2 Minuten Lüfterdrehzahl)
 - **Lüfter-Erinnerung**: Desktop-Benachrichtigung, wenn die CPU heiß ist, aber die gemessene
-  Drehzahl niedrig bleibt. Ersatz für einen echten Regelkreis, da die Drehzahl nicht per Software
-  setzbar ist (siehe [Hardware-Hintergrund](#hardware-hintergrund))
+  Drehzahl niedrig bleibt - z.B. nützlich, solange der Automatikmodus selbst noch keine
+  temperaturbasierte Drehzahlregelung fährt (siehe [Hardware-Hintergrund](#hardware-hintergrund))
 - **CSV-Verlaufsprotokoll** (Temperatur/RPM/Farbe über Zeit), opt-in, für spätere Auswertung
 - **Kritisch-heiß-Alarm**: hohe Temperatur-Schwellen können statt nur einer anderen Farbe auch
   einen auffälligeren Effekt setzen (z.B. `chase`/Lauflicht)
@@ -52,16 +56,22 @@ der Original-App und durch systematische Live-Tests am physischen Gerät.
 
 ## Hardware-Hintergrund
 
-Das Pad hat **keine software-steuerbare stufenlose Lüfterdrehzahl**. Das ist eine
-Hardware/Firmware-Grenze, keine Einschränkung dieses Tools. Die Drehzahl bleibt ausschließlich
-über das physische Rad am Pad einstellbar; `llano-v12ultra-ctrl` liest sie nur aus (Live-Telemetrie).
-Software-seitig steuerbar sind: RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit,
+Die Lüfterdrehzahl **ist** per Software steuerbar (26 Stufen, 300-2800 U/min in 100er-Schritten) -
+allerdings über ein eigenständiges HID-Feature-Report-Kommando, komplett getrennt vom
+Licht-Kommando. Monatelange Tests, die stattdessen ein Byte im Licht-Kommando manipulierten, waren
+deshalb wirkungslos (historisch dokumentiert in [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)
+NACHTRAG 1-7) - der eigentliche Fan-Befehl wurde erst per Live-USB-Capture gegen die echte
+Hersteller-App auf echter Windows-Hardware gefunden und anschließend sowohl unter Windows als auch
+nativ hier unter Linux live bestätigt (NACHTRAG 8). Das physische Rad am Pad funktioniert weiterhin
+parallel als manuelle Override-Möglichkeit.
+
+Ebenfalls software-steuerbar: RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit,
 Helligkeit, sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht).
 
-Da die Drehzahl selbst nicht regelbar ist, bietet `llano-v12ultra-ctrl` stattdessen zwei indirekte
-Werkzeuge rund um diese Grenze an (siehe [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)):
-eine Desktop-Erinnerung, das Rad manuell hochzudrehen, und ein optionales Verlaufsprotokoll, um im
-Nachhinein die passende Radstellung für typische Lasten zu finden.
+Der Automatikmodus (siehe unten) nutzt die Lüfterdrehzahl-Steuerung aktuell noch **nicht** aktiv
+(schaltet bisher nur die Farbe nach Temperatur um) - die Lüfter-Erinnerung und das Verlaufsprotokoll
+(siehe [Lüfter-Erinnerung & Verlaufsprotokoll](#lüfter-erinnerung--verlaufsprotokoll)) sind deshalb
+weiterhin nützlich, bis eine echte temperaturbasierte Drehzahlregelung eingebaut ist.
 
 ## Installation
 
@@ -123,15 +133,14 @@ llano-v12ultra-ctrl light --off                                  # Beleuchtung a
 llano-v12ultra-ctrl power off                                    # gesamte Einheit aus (Lüfter + Licht)
 llano-v12ultra-ctrl monitor                                       # Live-Telemetrie laufend anzeigen
 llano-v12ultra-ctrl raw-input                                      # rohen 64-Byte Input-Report beobachten (Diagnose)
-llano-v12ultra-ctrl fan-speed 50                                   # experimentell, auf diesem Gerät wirkungslos (siehe unten)
+llano-v12ultra-ctrl fan-speed 50                                   # Lüfterdrehzahl setzen (1-100, siehe unten)
 llano-v12ultra-ctrl-gui                                           # grafische Oberfläche starten
 ```
 
-`fan-speed` schreibt Byte 1 des Feature-Reports (Wertebereich 1-100). Auf dem llano V12 Ultra
-nachweislich wirkungslos - erschöpfend getestet (siehe
-[Protokoll-Dokumentation](#protokoll-dokumentation)) - aber forward-kompatibel vorbereitet, falls
-eine andere Firmware-Revision dieses Feld doch auswertet. Auch in der GUI als eigener,
-klar gekennzeichneter "Fan-Speed (experimentell)"-Regler verfügbar.
+`fan-speed` setzt die Lüfterdrehzahl über ein eigenes HID-Kommando (Wertebereich `1`-`100`, linear
+auf 300-2800 U/min in 26 Stufen abgebildet: `raw=1` → 300 U/min, `raw=100` → 2800 U/min). Live
+verifiziert über den gesamten Bereich (siehe [Hardware-Hintergrund](#hardware-hintergrund)). Auch in
+der GUI als eigener Fan-Speed-Regler verfügbar.
 
 | Option | Werte |
 |---|---|
@@ -209,44 +218,31 @@ Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/pro
 
 Der komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei
 Reports, keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature
-(letzterer vollständig reverse-engineered). Zur Frage "kann man die Lüfterdrehzahl doch irgendwie
-setzen?" wurde inzwischen erschöpfend getestet:
+(vollständig reverse-engineered, inklusive des separaten Fan-Speed-Kommandos).
 
-- **Pcap-Neuanalyse**: der originale USB-Mitschnitt der echten App (460MB) wurde vollständig
-  ausgewertet - über 1300 echte SET_REPORT/GET_REPORT-Aufrufe der App, ausnahmslos alle mit
-  Report-Typ Feature, keiner mit Report-Typ Output.
-- **Vollständiger Fuzz**: alle 64 Output-Report-Positionen x alle 256 Werte (16384
-  Schreib-Lese-Zyklen) live gegen echte Hardware getestet - 0 anhaltende Auswirkungen auf den
-  zurückgelesenen Zustand.
-- Dabei aber ein reproduzierbarer Nebenbefund: **jeder** Schreibvorgang auf den Output-Report löst
-  einen kurzen, inhaltsunabhängigen Lichtblitz aus (4/4 bei gezieltem Nachtest bestätigt) - eine
-  Firmware-Nebenwirkung des Empfangs, kein steuerbarer Effekt und kein Hinweis auf einen
-  Fan-Speed-Pfad.
-- **Original-App zerlegt**: `MythCool.exe` und alle `.gpk`-Ressourcen (unverschlüsselte, umbenannte
-  Electron-ASAR-Archive) statisch analysiert. Die App hat echten `setFanSpeed()`-Code mit
-  Fan-Curve-Logik, der einen `SetLapFanParam`-Befehl an ein natives `usbcenter`-Objekt schickt.
-  "V12 Pro" existiert zudem nicht als Produktname in der App (nur "V12 Ultra") - die frühere
-  Namensannahme dieses Projekts war schlicht falsch.
-- **Offizielles Handbuch + echter Handler gefunden**: das offizielle Nutzer-PDF zeigt Screenshots
-  mit exakt unserer VID/PID und einer vollständigen RPM-Mode-UI (AI Low/Medium/High mit konkreten
-  U/min-Bereichen, Custom-Fan-Curve). Der native Handler ist `GPP_USB_Center.exe`, ein separater
-  Hilfsprozess mit einer Klasse `LJN_LAP_FAN`, die per Disassemblierung bestätigt `SetLapFanParam`/
-  `fan_speed` aus dem JSON parst und echte HID/SetupAPI/DeviceIoControl-Windows-APIs importiert.
-- Ein Live-Test unter Wine (App + `GPP_USB_Center.exe` tatsächlich gestartet, USB-Traffic live
-  mitgeschnitten) scheiterte an einem separaten Problem: die App erkennt das Gerät unter Wine gar
-  nicht (kein einziger HID-Kontaktversuch während der ganzen Sitzung) - vermutlich unvollständige
-  SetupAPI/WinUSB-Geräteerkennung in Wine, unabhängig vom Fan-Speed-Protokoll selbst.
+**Kurzfassung der Herleitung** (volle Historie inkl. aller Sackgassen in den Nachträgen von
+[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)):
 
-**Aktueller Stand (offener als zunächst angenommen):** die Original-Software hat nachweislich
-echten, funktionsfähig aussehenden Code für genau dieses Gerät - nicht nur eine UI-Attrappe. Ob er
-auf der eigenen Hardware wirkt, konnte weder durch eigene Byte-Level-Tests (bislang immer
-wirkungslos) noch durch einen Wine-Live-Test (Geräteerkennung schlug fehl) abschließend geklärt
-werden. Der einzige verbleibende schlüssige Test ist echtes Windows (reale Maschine oder VM mit
-funktionierendem USB-Passthrough).
+- Über 1300 SET_REPORT-Aufrufe aus einem originalen USB-Mitschnitt der echten App, ein
+  vollständiger 64x256-Fuzz aller Output-Report-Positionen und eine statische Analyse von
+  `MythCool.exe`/`GPP_USB_Center.exe` (native `LJN_LAP_FAN`-Klasse, parst nachweislich
+  `SetLapFanParam`/`fan_speed`) zeigten: die App hat echten, funktionsfähig aussehenden Fan-Code,
+  aber jeder eigene Testversuch (der ein Byte im *Licht*-Kommando manipulierte) blieb wirkungslos.
+- Ein Live-Test unter Wine scheiterte an einem separaten Problem (Geräteerkennung schlug unter Wine
+  komplett fehl), ein Live-Test in einer Windows-11-VM zeigte zwar erkanntes Gerät und volle
+  RPM-Mode-UI, aber nie einen echten Schreibversuch - im Nachhinein, weil dabei nur die
+  temperaturbasierten AI-Modi geklickt wurden, nicht der manuelle Custom-Modus, und weil die VM
+  ohnehin keine echten Sensordaten liefert.
+- **Der Durchbruch**: Live-USB-Capture (USBPcap/Wireshark) auf **echter** Windows-Hardware, während
+  in der echten App manuell eine eigene Lüfterkurve gesetzt wurde, zeigte ein komplett eigenständiges
+  Kommando - andere Byte-0-Kennung (`0x01` statt der `0x00` des Licht-Kommandos), festes
+  Unterkommando-Tag in Byte 4. Damit erklärt sich rückblickend, warum jahrelange Tests am Licht-Kommando
+  nie etwas bewirkt haben: es war schlicht das falsche Kommando. Live bestätigt auf echter
+  Windows-Hardware UND nativ hier unter Linux, über den gesamten Wertebereich.
 
-Details und die Historie aller Tests stehen im Nachtrag in
-[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py). `llano-v12ultra-ctrl raw-input` erlaubt weiteres
-manuelles Beobachten des Input-Reports.
+Details, Byte-Layout und die komplette Test-Historie stehen im Nachtrag in
+[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) (NACHTRAG 1-8). `llano-v12ultra-ctrl raw-input`
+erlaubt weiteres manuelles Beobachten des Input-Reports.
 
 ## Beitragen
 
