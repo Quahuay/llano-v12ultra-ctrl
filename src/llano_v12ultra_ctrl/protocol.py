@@ -272,6 +272,55 @@ Gesamtfazit nach allen bisherigen Tests: Lüfterdrehzahl per Software zu
 setzen ist nach aktuellem Kenntnisstand nicht möglich. Einzige verbleibende
 Methode für noch mehr Gewissheit wäre die physische Inspektion des Rads
 (siehe oben).
+
+NACHTRAG 4 (Original-App zerlegt, 2026-08-10): Auf die Frage "müsste das
+nicht mit der Original-Hardware/-Software funktionieren?" wurde die echte
+Myth.Cool-App (`MythCool.exe`, ~161MB, CEF-basierte Anwendung) sowie alle
+zugehörigen Ressourcen statisch analysiert (rein lesend, keine
+Geräte-Interaktion) - `.gpk`-Dateien sind unverschlüsselte, umbenannte
+Electron-ASAR-Archive, direkt auslesbar.
+
+Bestätigter Befund: In `windows/background/bundle.min.js` (aus
+`webapp.gpk`) existiert echter Code (`setFanSpeed()`, Fan-Curve-
+Interpolationstabelle, `checkV16Info()`), der `fan_speed` berechnet und
+per `mythcool.usbcenter.SendInfo.promise(1, JSON.stringify({CMD:
+"SetLapFanParam", fan_speed: ..., ...}))` verschicken will. Die native
+Umsetzung von `mythcool.usbcenter` wurde in KEINEM von rund 15 geprüften
+Binaries gefunden (String-Suche ASCII+UTF-16 in `MythCool.exe`,
+`MythCoolLauncher.exe`, allen 9 lokal vorhandenen `.node`-Addons sowie
+diversen GamePP-DLLs) - auch nicht in `BaseUtils64.node`
+("GamePP-Utils-Addon"), obwohl genau dieses Modul als einziges echte
+HID/WinUSB/SetupAPI/DeviceIoControl-Importe hat und damit der
+architektonisch plausibelste Kandidat für echte USB-I/O wäre. Auch die
+Hypothese eines separaten lokalen Server-Prozesses (nahegelegt durch
+Namen wie `SparkServerAddon64.node`, `RunClient`) wurde geprüft und
+verworfen - keine Websocket/localhost-Strings gefunden.
+
+Zusätzlich in `mainui.gpk` (`Game_Home.js`, Produkt-/Modellauswahl-UI)
+bestätigt: "V12 Ultra" ist ein echter, eigenständiger Produktname in der
+Lokalisierungstabelle der App (`GreenGiantV12Ultra: "V12 Ultra Cooler"`,
+in >10 Sprachen). Ein Name "V12 Pro" existiert dort NICHT - die frühere
+Annahme, es gäbe eine separate "V12 Pro"-Variante mit anderem
+Funktionsumfang, war ein Irrtum unsererseits, nicht durch die
+Original-Software gestützt. Keine VID/PID-zu-Modell-Zuordnungstabelle
+gefunden, die Rückschlüsse auf gerätespezifische Fähigkeiten erlauben
+würde.
+
+Wichtigster Befund bleibt aber unabhängig von alldem: der bereits in
+Nachtrag 3 dokumentierte vollständige Pcap-Re-Analyse zeigt, dass die
+Original-App bei 1305 echten Feature-Report-Schreibvorgängen 1304 mal
+Byte 1 (die fan_speed-Position) auf 0x00 setzt - nur ein einziger
+Ausreißer (0x0c/12) ohne eindeutigen Kontext, könnte ein Echo eines
+zuvor gelesenen Telemetriewerts sein statt eine echte Regelabsicht.
+Selbst WENN `SendInfo({CMD:"SetLapFanParam"})` bei aktivem Fan-Curve-
+Feature tatsächlich einen Wert in Byte 1 schreiben würde: es träfe auf
+exakt dasselbe Byte, das durch eigene Tests (15 gezielte Schreibversuche,
+vollständiger 64x256-Fuzz) als hart read-only bestätigt ist. Die
+Schlussfolgerung "Lüfterdrehzahl per Software setzen funktioniert auf
+diesem physischen Gerät nicht" bleibt nach dieser zusätzlichen
+Untersuchungsrunde unverändert bestehen - jetzt zusätzlich gestützt durch
+die Erkenntnis, dass selbst die eigene App diesen Pfad in der
+aufgezeichneten Nutzung praktisch nie mit einem echten Wert befüllt.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum

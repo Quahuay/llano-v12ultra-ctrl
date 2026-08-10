@@ -215,6 +215,14 @@ setzen?" wurde inzwischen erschöpfend getestet:
   einen kurzen, inhaltsunabhängigen Lichtblitz aus (4/4 bei gezieltem Nachtest bestätigt) - eine
   Firmware-Nebenwirkung des Empfangs, kein steuerbarer Effekt und kein Hinweis auf einen
   Fan-Speed-Pfad.
+- **Original-App zerlegt**: `MythCool.exe` und alle `.gpk`-Ressourcen (unverschlüsselte, umbenannte
+  Electron-ASAR-Archive) statisch analysiert. Die App hat echten `setFanSpeed()`-Code mit
+  Fan-Curve-Logik, der einen `SetLapFanParam`-Befehl an ein natives `usbcenter`-Objekt schickt -
+  dessen native Umsetzung wurde in keinem von ~15 geprüften Binaries gefunden. Wichtiger: die
+  Pcap-Analyse zeigt, dass selbst die echte App bei 1305 realen Schreibvorgängen 1304 mal die
+  Fan-Speed-Position auf 0 setzt - der Pfad wird in der Praxis kaum genutzt. "V12 Pro" existiert
+  zudem nicht als Produktname in der App (nur "V12 Ultra") - die frühere Namensannahme dieses
+  Projekts war schlicht falsch, siehe [Nachtrag 4](src/llano_v12ultra_ctrl/protocol.py).
 
 Details und die Historie aller Tests stehen im Nachtrag in
 [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py). `llano-v12ultra-ctrl raw-input` erlaubt weiteres
