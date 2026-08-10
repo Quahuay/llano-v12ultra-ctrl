@@ -92,10 +92,7 @@ disabled by default). See [Fan Curve & Fan Reminder](#fan-curve--fan-reminder).
 
 ## Installation
 
-NOTE: native installers are new. See [Packaging Status](#packaging-status) for what is still
-unverified beyond a local dry run. Packages and binaries are attached to
-[GitHub Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) once a version is
-tagged. Pick the path for your platform:
+Packages and binaries are attached to [GitHub Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases). Pick the path for your platform:
 
 | Platform | How |
 |---|---|
@@ -286,17 +283,15 @@ Feedback from Windows users, especially with LibreHardwareMonitor running, is we
 
 | Format | Status | Notes |
 |---|---|---|
-| `.msi` (Windows, `packaging/msi/`) | TBD | Setup script verified against the real installed `cx_Freeze` API, build not yet run end to end (needs a Windows CI runner or the Windows test machine). |
-| `.deb` (`packaging/deb/`) | TBD | Staging step (file layout, wrapper scripts, import path) verified locally; the actual `fpm` packaging step itself not yet run (no `fpm` in this dev environment). |
-| Arch `PKGBUILD` (`packaging/PKGBUILD`) | TBD | Wheel build verified locally (correct version, entry points); not yet run through `makepkg` on real Arch. |
-| AppImage (`packaging/appimage/`) | TBD | `AppRun`/`.desktop` syntax-checked; full build not yet run (no `python3-venv`/`linuxdeploy` in this dev environment). |
-| AUR publication | TBD | Not submitted yet. Full self-contained instructions in [`packaging/AUR.md`](packaging/AUR.md). |
+| `.msi` (Windows, `packaging/msi/`) | OK | Built via GitHub Actions CI (windows-latest, Python 3.12, cx_Freeze). Live-tested on real Windows 10 hardware (`status`/`fan-speed`/CLI functional, device not found is correct - pad was not connected during the remote test). |
+| `.deb` (`packaging/deb/`) | OK | Built via CI (fpm), verified end-to-end. |
+| Arch `PKGBUILD` (`packaging/PKGBUILD`) | OK | Built via CI (makepkg in archlinux container), verified end-to-end. Self-compile on your own machine: see [Arch Instructions](#arch-linux-self-compile). |
+| AppImage (`packaging/appimage/`) | OK | Built via CI (appimagetool). An .AppImage for all Linux distros without their own package. |
+| AUR publication | TBD | Not submitted yet. Full self-contained instructions in [`packaging/AUR.md`](packaging/AUR.md). Self-compile without AUR: see [Arch Instructions](#arch-linux-self-compile). |
 
-All four formats build in the [`release.yml`](.github/workflows/release.yml) GitHub Actions
-workflow, triggered by pushing a `v*` tag. That workflow run is the actual first end-to-end test
-for each of them. Until it has run and been confirmed, treat the packaging as new and not yet
-battle-tested. The functionality itself (HID protocol, fan curve, profiles, auto mode) is
-unaffected either way, since this only changes how the same code gets installed.
+All four formats build automatically in the [`release.yml`](.github/workflows/release.yml) GitHub Actions
+workflow on every `v*` tag push and are attached to the respective
+[GitHub Release](https://github.com/Quahuay/llano-v12ultra-ctrl/releases).
 
 ## Protocol Documentation
 
