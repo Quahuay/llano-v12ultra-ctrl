@@ -52,12 +52,12 @@ bdist_msi_options = {
 
 executables = [
     Executable(
-        str(REPO_ROOT / "src" / "llano_v12ultra_ctrl" / "cli.py"),
+        str(REPO_ROOT / "src" / "llano_v12ultra_ctrl" / "_cli_entry.py"),
         target_name="llano-v12ultra-ctrl.exe",
         base=None,  # Konsolen-App
     ),
     Executable(
-        str(REPO_ROOT / "src" / "llano_v12ultra_ctrl" / "gui" / "app.py"),
+        str(REPO_ROOT / "src" / "llano_v12ultra_ctrl" / "_gui_entry.py"),
         target_name="llano-v12ultra-ctrl-gui.exe",
         base="Win32GUI",  # kein Konsolenfenster
         icon=str(ICON) if ICON.exists() else None,

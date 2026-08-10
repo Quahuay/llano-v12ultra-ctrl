@@ -44,12 +44,7 @@ curl -L -o "$LINUXDEPLOY" \
 chmod +x "$LINUXDEPLOY"
 
 mkdir -p "$OUT_DIR"
-( cd "$OUT_DIR" && "$LINUXDEPLOY" --appdir "$APPDIR" --output appimage \
-    --exclude-library="libpulse*" \
-    --exclude-library="libasound*" \
-    --exclude-library="libdrm*" \
-    --exclude-library="libwayland*" \
-)
+( cd "$OUT_DIR" && "$LINUXDEPLOY" --appdir "$APPDIR" --output appimage )
 mv "$OUT_DIR"/llano-v12ultra-ctrl*.AppImage "$OUT_DIR/llano-v12ultra-ctrl-${VERSION}-x86_64.AppImage"
 
 echo "Built: $OUT_DIR/llano-v12ultra-ctrl-${VERSION}-x86_64.AppImage"
