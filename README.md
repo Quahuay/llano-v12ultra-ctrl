@@ -57,20 +57,17 @@ der Original-App und durch systematische Live-Tests am physischen Gerät - inklu
 
 ## Hardware-Hintergrund
 
-Die Lüfterdrehzahl **ist** per Software steuerbar (raw-Bereich 1-100, jeder einzelne Wert bewirkt
-eine eigene, spürbare Drehzahländerung von ca. 25 U/min - macht in Summe 300-2800 U/min) -
-allerdings über ein eigenständiges HID-Feature-Report-Kommando, komplett getrennt vom
-Licht-Kommando. Monatelange Tests, die stattdessen ein Byte im Licht-Kommando manipulierten, waren
-deshalb wirkungslos (historisch dokumentiert in [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)
-NACHTRAG 1-7) - der eigentliche Fan-Befehl wurde erst per Live-USB-Capture gegen die echte
-Hersteller-App auf echter Windows-Hardware gefunden und anschließend sowohl unter Windows als auch
-nativ hier unter Linux live bestätigt (NACHTRAG 8), inklusive eines Feinstufen-Tests aller 100
-Einzelwerte (NACHTRAG 9). Werte über 100 nimmt das Gerät zwar noch an (bis 255), die echte Drehzahl
-bleibt ab da aber auf dem Maximum stehen - nur die Anzeige rechnet ohne Begrenzung weiter. Das
-physische Rad am Pad funktioniert weiterhin parallel als manuelle Override-Möglichkeit.
+Software-steuerbar sind: Lüfterdrehzahl (raw-Bereich 1-100, ca. 25 U/min pro Schritt, insgesamt
+300-2800 U/min), RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit, Helligkeit,
+sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht). Werte über 100 nimmt
+das Gerät zwar noch an, die echte Drehzahl bleibt ab dem Maximum aber stehen - nur die Anzeige
+rechnet ohne Begrenzung weiter. Das physische Rad am Pad funktioniert weiterhin parallel als
+manuelle Override-Möglichkeit.
 
-Ebenfalls software-steuerbar: RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit,
-Helligkeit, sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht).
+Lüfterdrehzahl und Licht sind zwei komplett getrennte HID-Kommandos (siehe
+[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) für das vollständige Byte-Layout). Wie das
+Fan-Kommando gefunden wurde, inklusive aller Sackgassen unterwegs, steht in
+[HISTORY.md](HISTORY.md).
 
 Der Automatikmodus (siehe unten) nutzt die Lüfterdrehzahl-Steuerung aktuell noch **nicht** aktiv
 (schaltet bisher nur die Farbe nach Temperatur um) - die Lüfter-Erinnerung und das Verlaufsprotokoll
@@ -187,8 +184,8 @@ in `~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
 **Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
 (`notify-send`), wenn die CPU-Temperatur `temp_c` erreicht, die gemessene Drehzahl aber unter
 `min_rpm` bleibt. `cooldown_s` verhindert wiederholte Benachrichtigungen, solange die Bedingung
-anhält. Das ist der einzig mögliche indirekte "Regelkreis", da die Drehzahl selbst nicht per
-Software gesetzt werden kann. Die Erinnerung richtet sich an den Menschen am physischen Rad.
+anhält. Übergangslösung, solange der Automatikmodus die Drehzahl noch nicht selbst aktiv regelt
+(siehe [Hardware-Hintergrund](#hardware-hintergrund)).
 
 **Verlaufsprotokoll** (`[auto.log]`): schreibt bei aktivem `auto`-Modus fortlaufend eine
 CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an den konfigurierten
@@ -197,12 +194,7 @@ ausreichend Kühlung liefert.
 
 ## Windows-Status
 
-Eine Windows-Portierung ist in Arbeit. Architektur-Entscheidung: Python bleibt die Sprache (kein
-Java-Rewrite), da sowohl `hidapi` (Python) als auch `hid4java` (Java) nur Wrapper um dieselbe
-native `hidapi`-C-Bibliothek sind - der HID-Transport wäre in beiden Sprachen gleich gut
-cross-platform, ein Java-Rewrite würde aber ~95% bereits fertigen und getesteten Code (Protokoll,
-CLI, GUI, Config) wegwerfen, ohne die eigentlichen OS-spezifischen Baustellen (Temperatursensoren,
-Hintergrunddienst, Notifications) zu lösen.
+Eine Windows-Portierung ist in Arbeit.
 
 | Datei | Status |
 |---|---|
@@ -219,41 +211,20 @@ Windows-Nutzern sind ausdrücklich willkommen (siehe [Beitragen](#beitragen)).
 
 Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
 Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
-Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py).
-
-Der komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei
-Reports, keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature
-(vollständig reverse-engineered, inklusive des separaten Fan-Speed-Kommandos).
-
-**Kurzfassung der Herleitung** (volle Historie inkl. aller Sackgassen in den Nachträgen von
-[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)):
-
-- Über 1300 SET_REPORT-Aufrufe aus einem originalen USB-Mitschnitt der echten App, ein
-  vollständiger 64x256-Fuzz aller Output-Report-Positionen und eine statische Analyse von
-  `MythCool.exe`/`GPP_USB_Center.exe` (native `LJN_LAP_FAN`-Klasse, parst nachweislich
-  `SetLapFanParam`/`fan_speed`) zeigten: die App hat echten, funktionsfähig aussehenden Fan-Code,
-  aber jeder eigene Testversuch (der ein Byte im *Licht*-Kommando manipulierte) blieb wirkungslos.
-- Ein Live-Test unter Wine scheiterte an einem separaten Problem (Geräteerkennung schlug unter Wine
-  komplett fehl), ein Live-Test in einer Windows-11-VM zeigte zwar erkanntes Gerät und volle
-  RPM-Mode-UI, aber nie einen echten Schreibversuch - im Nachhinein, weil dabei nur die
-  temperaturbasierten AI-Modi geklickt wurden, nicht der manuelle Custom-Modus, und weil die VM
-  ohnehin keine echten Sensordaten liefert.
-- **Der Durchbruch**: Live-USB-Capture (USBPcap/Wireshark) auf **echter** Windows-Hardware, während
-  in der echten App manuell eine eigene Lüfterkurve gesetzt wurde, zeigte ein komplett eigenständiges
-  Kommando - andere Byte-0-Kennung (`0x01` statt der `0x00` des Licht-Kommandos), festes
-  Unterkommando-Tag in Byte 4. Damit erklärt sich rückblickend, warum jahrelange Tests am Licht-Kommando
-  nie etwas bewirkt haben: es war schlicht das falsche Kommando. Live bestätigt auf echter
-  Windows-Hardware UND nativ hier unter Linux, über den gesamten Wertebereich.
-
-Details, Byte-Layout und die komplette Test-Historie stehen im Nachtrag in
-[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) (NACHTRAG 1-8). `llano-v12ultra-ctrl raw-input`
-erlaubt weiteres manuelles Beobachten des Input-Reports.
+Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py). Der
+komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei Reports,
+keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature (vollständig
+reverse-engineered, inklusive des separaten Fan-Speed-Kommandos). Wie diese Herleitung entstanden
+ist, steht in [HISTORY.md](HISTORY.md). `llano-v12ultra-ctrl raw-input` erlaubt weiteres manuelles
+Beobachten des Input-Reports.
 
 ## Beitragen
 
 Issues und Pull Requests sind willkommen, insbesondere Rückmeldungen zu anderen llano-V12-Varianten
 oder zusätzlichen effect/color-Werten wären hilfreich. Bitte beim Ändern von `protocol.py`/`device.py`
 Messreihen/Belege für neue Erkenntnisse mitliefern, analog zum bestehenden Dokumentationsstil.
+
+**macOS ist nicht geplant** - das Pad ist explizit nicht für den Einsatz an Mac-Geräten geeignet.
 
 ## Autoren
 
