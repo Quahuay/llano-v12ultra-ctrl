@@ -517,6 +517,52 @@ Unwahrscheinlich mit aktuellem Kenntnisstand - es gibt kein bekanntes
 separates "Display-Inhalt setzen"-Kommando, die Anzeige scheint eine reine
 Firmware-Berechnung aus dem einen raw-Byte zu sein. Nicht weiter verfolgt,
 kein Beleg in irgendeiner Capture bisher.
+
+NACHTRAG 10 (device.py live unter echtem Windows getestet, 2026-08-10):
+`llano-v12ultra-ctrl` (das eigene Paket, nicht nur das Protokoll) auf der
+echten Windows-10-Testmaschine installiert und gegen das physische Gerät
+getestet - bislang nur code-seitig vorbereitet, nie tatsächlich unter
+Windows ausgeführt. Dabei drei echte Bugs gefunden und behoben:
+
+1. `hid` (hidapi-Python-Bindings) fehlte komplett in den
+   `pyproject.toml`-Dependencies für `sys_platform=='win32'` - ergänzt.
+2. `_WindowsDevice` war für die ÄLTERE cython-hidapi-API geschrieben
+   (`hid.device()` + `.open(vid,pid)`, `.read(size, timeout_ms=)`). Das
+   tatsächlich von PyPI installierte `hid`-Paket (offizielle
+   libusb/hidapi-Bindings, aktuell Version 1.0.9) hat eine andere API:
+   `hid.Device(vid=, pid=)` (öffnet direkt im Konstruktor, wirft
+   `hid.HIDException` statt `OSError`), `.read(size, timeout=)` (ohne
+   `_ms`-Suffix). `send_feature_report()`/`write()` brauchen außerdem
+   echte `bytes`, kein `list(report)` - die ctypes-Signatur dahinter
+   (`hid_send_feature_report`) erwartet `c_char_p`, keine Python-Liste.
+   `_WindowsDevice` entsprechend umgeschrieben.
+3. Das `hid`-Paket ist nur ein ctypes-Wrapper und braucht zusätzlich die
+   native `hidapi.dll` (nicht im PyPI-Paket enthalten) irgendwo im
+   DLL-Suchpfad (z.B. neben `python.exe`) - offizieller Download unter
+   github.com/libusb/hidapi/releases.
+
+Nach allen drei Fixes: `status`/`light`/`fan-speed` erfolgreich gegen das
+echte Gerät unter Windows getestet, sowohl Lese- als auch Schreibpfad
+funktionieren. Nebenbefund beim Testen: die fan_speed_raw-Telemetrie
+braucht nach einem Befehlswechsel ein paar Sekunden, bis sie sich auf den
+tatsächlich eingeschwungenen Wert einpendelt (fünf aufeinanderfolgende
+Abfragen kurz nach einem Schreibvorgang zeigten erst wechselnde, dann
+stabile Werte, die gut mit der vom Nutzer direkt am Pad abgelesenen
+Anzeige übereinstimmten) - echte Motor-Anlaufzeit, kein Software-Bug,
+gilt vermutlich plattformunabhängig.
+
+Weiterer Nebenbefund: einmal eingeschwungen, blieb `fan_speed_raw` bei
+zehn aufeinanderfolgenden Abfragen exakt stabil (raw=43), während die
+**physische Anzeige am Pad** im selben Zeitraum laufend zwischen zwei
+Werten hin- und herschwankte (1550/1375 U/min). Naheliegende Erklärung:
+`fan_speed_raw` ist der von der Firmware gespeicherte SOLL-Wert (das, was
+zuletzt per Software gesetzt oder per Rad-Stellung zuletzt erkannt wurde),
+während die physische Anzeige eine echte, live gemessene Tachometer-Drehzahl
+zeigt, die naturgemäß etwas um den Sollwert schwankt (normales
+Messrauschen eines frei drehenden Lüfters). Nicht weiter verifiziert,
+aber plausibel und ändert nichts an der Kernaussage: Lesen und Schreiben
+funktionieren beide, exakt vorherzusagende U/min-Werte sollte man aber
+nicht erwarten.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum

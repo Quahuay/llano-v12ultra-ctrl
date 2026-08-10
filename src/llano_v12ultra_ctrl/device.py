@@ -11,12 +11,13 @@ zeigt unten auf die passende Klasse):
   öffnet/schließt, ungeeignet ist. Live gegen echte Hardware getestet und
   stabil.
 - **Windows** (`_WindowsDevice`): über die `hid`-Bibliothek (hidapi), da es
-  unter Windows kein hidraw-Äquivalent gibt. **UNGETESTET** - keine
-  Windows-Maschine in dieser Entwicklungsumgebung verfügbar. Ob der auf
-  Linux beobachtete Rebind-Effekt dort ebenfalls auftritt, ist unbekannt
-  (die Windows-HID-API von hidapi ist eine komplett andere Implementierung
-  als der Linux-hidraw-Backend) - vor Produktivnutzung unter Windows selbst
-  gegentesten.
+  unter Windows kein hidraw-Äquivalent gibt. **Live gegen echte Hardware auf
+  echtem Windows 10 getestet** (protocol.py NACHTRAG 10) - `status`/
+  `light`/`fan-speed` funktionieren, sowohl Lese- als auch Schreibpfad. Der
+  auf Linux beobachtete Rebind-Effekt trat dort NICHT auf (andere
+  Windows-HID-API-Implementierung als das Linux-hidraw-Backend). Braucht
+  zusätzlich die native `hidapi.dll` im DLL-Suchpfad (nicht im PyPI-Paket
+  enthalten, siehe README Windows-Status).
 
 `protocol.py` ist in beiden Fällen identisch und unverändert - beide
 Implementierungen tauschen exakt das gleiche 9-Byte-Feature-Report-Layout
@@ -158,15 +159,20 @@ class _LinuxDevice:
 # ------------------------------------------------------------- Windows ----
 
 class _WindowsDevice:
-    """UNGETESTET - siehe Modul-Docstring."""
+    """Nutzt das `hid`-Paket (offizielle libusb/hidapi-Python-Bindings, PyPI
+    `hid`, benötigt zusätzlich die native hidapi.dll auf dem PATH oder neben
+    der ausführbaren Datei - siehe README Windows-Status). ACHTUNG: dessen
+    API ist `hid.Device(vid=, pid=)` + `.read(size, timeout=ms)` - NICHT das
+    ältere `hid.device()`/`.open()`/`timeout_ms=`-API einer älteren
+    cython-hidapi-Version, die dieser Code ursprünglich (ungetestet)
+    annahm. Live gegen echte Hardware unter Windows verifiziert."""
 
     def __init__(self, path=None):
         import hid
 
-        self._dev = hid.device()
         try:
-            self._dev.open(VID_INT, PID_INT)
-        except OSError as e:
+            self._dev = hid.Device(vid=VID_INT, pid=PID_INT)
+        except hid.HIDException as e:
             raise DeviceNotFoundError(
                 "llano V12 Ultra (374a:b101) nicht gefunden. Ist das Pad angeschlossen?"
             ) from e
@@ -190,7 +196,7 @@ class _WindowsDevice:
     def set_light(self, color: int, effect: int = 0, speed: int = 0x00, light_on: bool = True, brightness: int = 0xFF, power: bool = True) -> protocol.Report:
         _validate_light_args(color, effect, speed, brightness)
         report = protocol.build_report(color=color, effect=effect, speed=speed, light_on=light_on, brightness=brightness, power=power)
-        self._dev.send_feature_report(list(report))
+        self._dev.send_feature_report(report)
         return self.get_report()
 
     def set_power(self, power: bool) -> protocol.Report:
@@ -200,7 +206,7 @@ class _WindowsDevice:
             speed=current.speed, light_on=current.light_on, brightness=current.brightness,
             power=power,
         )
-        self._dev.send_feature_report(list(report))
+        self._dev.send_feature_report(report)
         return self.get_report()
 
     def set_fan_speed(self, raw: int) -> protocol.Report:
@@ -209,18 +215,18 @@ class _WindowsDevice:
         if not 1 <= raw <= 100:
             raise ValueError("raw muss zwischen 1 und 100 liegen (siehe protocol.py fan_speed_raw-Bereich)")
         report = protocol.build_fan_report(raw)
-        self._dev.send_feature_report(list(report))
+        self._dev.send_feature_report(report)
         return self.get_report()
 
     def read_input_report(self, timeout_s: float = 0.2):
-        raw = self._dev.read(INPUT_REPORT_LEN, timeout_ms=int(timeout_s * 1000))
+        raw = self._dev.read(INPUT_REPORT_LEN, timeout=int(timeout_s * 1000))
         return bytes(raw) if raw else None
 
     def write_output_report(self, data: bytes):
         if len(data) > OUTPUT_REPORT_LEN:
             raise ValueError(f"data darf höchstens {OUTPUT_REPORT_LEN} Byte lang sein")
         padded = bytes(data) + bytes(OUTPUT_REPORT_LEN - len(data))
-        self._dev.write([0x00] + list(padded))
+        self._dev.write(bytes([0x00]) + padded)
 
 
 def _validate_light_args(color, effect, speed, brightness):

@@ -13,11 +13,8 @@ authors = [{ name = "Quahuay" }]
 dependencies = [
     "plyer>=2.1",              # cross-platform Desktop-Notifications (notify.py, fan_reminder)
     "wmi>=1.5; sys_platform=='win32'",  # CPU-Temp unter Windows via LibreHardwareMonitor (temp.py) - UNGETESTET
+    "hid>=1.0.5; sys_platform=='win32'",  # _WindowsDevice in device.py (Linux nutzt bewusst rohe ioctls statt hidapi)
 ]
-# device.py nutzt aktuell noch rohe Linux-ioctls (kein hidapi) - siehe README,
-# Abschnitt "Windows-Status": der HID-Layer ist der noch fehlende Teil für
-# echte Windows-Unterstützung, bewusst zurückgestellt nach einem Zwischenfall
-# beim ersten Testlauf (siehe Git-Historie/README).
 
 [project.optional-dependencies]
 gui = ["PyQt6>=6.5"]

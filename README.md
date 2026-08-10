@@ -2,13 +2,12 @@
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
-![Platform: Linux getestet, Windows in Arbeit](https://img.shields.io/badge/platform-Linux%20(getestet)%20%2F%20Windows%20(in%20Arbeit)-lightgrey.svg)
+![Platform: Linux (primär) + Windows (Geräteansteuerung getestet)](https://img.shields.io/badge/platform-Linux%20(prim%C3%A4r)%20%2B%20Windows-lightgrey.svg)
 
-> **Vollständig getestet nur unter Linux.** Eine Windows-Portierung ist in Arbeit (siehe
-> [Windows-Status](#windows-status)) - Temperatursensoren und Hintergrunddienst-Steuerung sind
-> bereits code-seitig vorbereitet (aber ungetestet, keine eigene Windows-Maschine im Dauerbetrieb),
-> die eigentliche Geräteansteuerung (`device.py`) läuft aktuell noch ausschließlich über
-> Linux-spezifische `/dev/hidraw*`-ioctls.
+> **Primär für Linux entwickelt und gepflegt.** Die eigentliche Geräteansteuerung (`status`/
+> `light`/`fan-speed`) ist live gegen echte Hardware unter Windows getestet und funktioniert (siehe
+> [Windows-Status](#windows-status)) - Temperatursensor-Erkennung und Hintergrunddienst-Steuerung
+> sind unter Windows dagegen bisher nur code-seitig vorbereitet, nicht praktisch verifiziert.
 
 Natives Linux-Steuerungstool für das **llano V12 Ultra** RGB-Laptop-Kühlpad (Holtek USB-HID
 `374a:b101`), dessen offizielle Windows-Software **Myth.Cool** ist. Statt die Windows-App unter
@@ -200,18 +199,15 @@ CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an 
 
 ## Windows-Status
 
-Eine Windows-Portierung ist in Arbeit.
-
 | Datei | Status |
 |---|---|
+| `device.py` | ✅ Live gegen echte Hardware unter Windows 10 getestet (`status`/`light`/`fan-speed`), Lese- und Schreibpfad funktionieren. Braucht zusätzlich die native `hidapi.dll` (nicht im PyPI-Paket `hid` enthalten) irgendwo im DLL-Suchpfad, z.B. neben `python.exe` - Download unter [github.com/libusb/hidapi/releases](https://github.com/libusb/hidapi/releases) |
 | `notify.py` | ✅ Auf `plyer` umgestellt (cross-platform), live unter Linux getestet |
-| `temp.py` | ✅ Windows-Zweig für CPU-Temperatur über LibreHardwareMonitor/WMI ergänzt, **ungetestet** |
-| `gui/service_control.py` | ✅ Windows-Zweig über `schtasks` (geplante Aufgabe) ergänzt, **ungetestet** |
-| `device.py` | ⏳ Noch offen. Ein erster Versuch, auf die cross-platform `hid`-Bibliothek umzusteigen, hat bei einem Testlauf einen USB-Rebind-Vorfall am echten Pad ausgelöst (vermutlich durch gleichzeitige Schreibzugriffe von zwei Prozessen, nicht zwingend ein hidapi-spezifisches Problem) - zurückgestellt, bis das sauber und ohne Risiko für die Hardware nachvollzogen werden kann |
+| `temp.py` | ⏳ Windows-Zweig für CPU-Temperatur über LibreHardwareMonitor/WMI vorhanden, **noch nicht live getestet** |
+| `gui/service_control.py` | ⏳ Windows-Zweig über `schtasks` (geplante Aufgabe) vorhanden, **noch nicht live getestet** |
 
-Für alle drei Windows-Zweige gilt: keine Windows-Maschine in der Entwicklungsumgebung verfügbar,
-daher ausschließlich code-seitig vorbereitet, nicht praktisch verifiziert. Rückmeldungen von
-Windows-Nutzern sind ausdrücklich willkommen (siehe [Beitragen](#beitragen)).
+Rückmeldungen von Windows-Nutzern zu den beiden noch ungetesteten Zweigen sind willkommen (siehe
+[Beitragen](#beitragen)).
 
 ## Protokoll-Dokumentation
 
