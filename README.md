@@ -224,12 +224,25 @@ setzen?" wurde inzwischen erschöpfend getestet:
   Fan-Speed-Pfad.
 - **Original-App zerlegt**: `MythCool.exe` und alle `.gpk`-Ressourcen (unverschlüsselte, umbenannte
   Electron-ASAR-Archive) statisch analysiert. Die App hat echten `setFanSpeed()`-Code mit
-  Fan-Curve-Logik, der einen `SetLapFanParam`-Befehl an ein natives `usbcenter`-Objekt schickt -
-  dessen native Umsetzung wurde in keinem von ~15 geprüften Binaries gefunden. Wichtiger: die
-  Pcap-Analyse zeigt, dass selbst die echte App bei 1305 realen Schreibvorgängen 1304 mal die
-  Fan-Speed-Position auf 0 setzt - der Pfad wird in der Praxis kaum genutzt. "V12 Pro" existiert
-  zudem nicht als Produktname in der App (nur "V12 Ultra") - die frühere Namensannahme dieses
-  Projekts war schlicht falsch, siehe [Nachtrag 4](src/llano_v12ultra_ctrl/protocol.py).
+  Fan-Curve-Logik, der einen `SetLapFanParam`-Befehl an ein natives `usbcenter`-Objekt schickt.
+  "V12 Pro" existiert zudem nicht als Produktname in der App (nur "V12 Ultra") - die frühere
+  Namensannahme dieses Projekts war schlicht falsch.
+- **Offizielles Handbuch + echter Handler gefunden**: das offizielle Nutzer-PDF zeigt Screenshots
+  mit exakt unserer VID/PID und einer vollständigen RPM-Mode-UI (AI Low/Medium/High mit konkreten
+  U/min-Bereichen, Custom-Fan-Curve). Der native Handler ist `GPP_USB_Center.exe`, ein separater
+  Hilfsprozess mit einer Klasse `LJN_LAP_FAN`, die per Disassemblierung bestätigt `SetLapFanParam`/
+  `fan_speed` aus dem JSON parst und echte HID/SetupAPI/DeviceIoControl-Windows-APIs importiert.
+- Ein Live-Test unter Wine (App + `GPP_USB_Center.exe` tatsächlich gestartet, USB-Traffic live
+  mitgeschnitten) scheiterte an einem separaten Problem: die App erkennt das Gerät unter Wine gar
+  nicht (kein einziger HID-Kontaktversuch während der ganzen Sitzung) - vermutlich unvollständige
+  SetupAPI/WinUSB-Geräteerkennung in Wine, unabhängig vom Fan-Speed-Protokoll selbst.
+
+**Aktueller Stand (offener als zunächst angenommen):** die Original-Software hat nachweislich
+echten, funktionsfähig aussehenden Code für genau dieses Gerät - nicht nur eine UI-Attrappe. Ob er
+auf der eigenen Hardware wirkt, konnte weder durch eigene Byte-Level-Tests (bislang immer
+wirkungslos) noch durch einen Wine-Live-Test (Geräteerkennung schlug fehl) abschließend geklärt
+werden. Der einzige verbleibende schlüssige Test ist echtes Windows (reale Maschine oder VM mit
+funktionierendem USB-Passthrough).
 
 Details und die Historie aller Tests stehen im Nachtrag in
 [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py). `llano-v12ultra-ctrl raw-input` erlaubt weiteres

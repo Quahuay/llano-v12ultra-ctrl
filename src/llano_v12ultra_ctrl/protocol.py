@@ -327,10 +327,55 @@ fünf über den gesamten Wertebereich verteilten Werten (1, 25, 50, 75, 100)
 einzeln getestet, mit Nutzer-Beobachtung nach jedem Wert. Byte 1 im
 zurückgelesenen Report blieb bei jedem der fünf Werte exakt identisch
 (unverändert der reale Telemetriewert), keine Reaktion am Display oder
-Lüfter. Damit ist die Schlussfolgerung "Lüfterdrehzahl per Software setzen
-funktioniert auf diesem Gerät nicht" nun auch durch eine frische,
-gezielte Live-Kontrolle bestätigt - die Untersuchung gilt als
-abgeschlossen.
+Lüfter. Damit war die Schlussfolgerung "Lüfterdrehzahl per Software setzen
+funktioniert auf diesem Gerät nicht" zu diesem Zeitpunkt auch durch eine
+frische, gezielte Live-Kontrolle bestätigt - siehe aber NACHTRAG 6, der
+diese Schlussfolgerung wieder relativiert.
+
+NACHTRAG 6 (offizielles Handbuch + echter Handler gefunden, 2026-08-10):
+Das offizielle "Download and Usage Instructions"-PDF (von Amazon verlinkt)
+zeigt Screenshots der echten Software mit **exakt unserer VID/PID**
+(SN Code V162433, PID B101, VID 374A) und einer vollständigen
+RPM-Mode-UI: "AI Intelligent Mode" (Low 300-1000rpm, Medium 600-2000rpm,
+High 1000-2800rpm), "Custom Mode" (Temperatur-Fan-Curve-Editor), und
+"Manual Mode" (explizit als "Roller Adjustment" bezeichnet, also nur das
+physische Rad). Das ist ein deutlich stärkerer Beleg als vorher, dass die
+Software-Steuerung für genau dieses Gerät gedacht ist, nicht für eine
+andere SKU.
+
+Zusätzlich wurde der reale native Handler gefunden: nicht in `MythCool.exe`
+selbst, sondern in einem separaten Hilfsprozess `GPP_USB_Center.exe`
+(`C:/ProgramData/GamePPPublic/UsbCenter/<version>/`, gestartet als
+eigenständiger Prozess mit `/product=usbcenter`). Enthält eine C++-Klasse
+`LJN_LAP_FAN` mit einer Methode, die per Disassemblierung (radare2)
+bestätigt "SetLapFanParam" und "fan_speed" aus dem eingehenden JSON parst,
+sowie echte `HidD_*`/`SetupAPI`/`DeviceIoControl`-Imports für echte
+USB-Kommunikation. Der exakte `DeviceIoControl`-Aufrufpfad für das
+geparste `fan_speed`-Feld konnte in der verfügbaren Zeit nicht bis zum
+Ende zurückverfolgt werden (die Bibliothek ist ein großes, geteiltes
+Multi-Geräte-USB-Framework).
+
+Ein Live-Test unter Wine (App + `GPP_USB_Center.exe` tatsächlich
+gestartet, USB-Traffic per usbmon/tshark live mitgeschnitten, während der
+Nutzer versucht hat, "AI Low Mode" zu klicken) scheiterte an einem
+GETRENNTEN Problem: Die App erkennt das Gerät unter Wine gar nicht (nur 8
+USB-Pakete am Gerät während der gesamten Sitzung, kein einziger
+HID-Kontaktversuch von `GPP_USB_Center.exe`) - vermutlich eine
+unvollständige SetupAPI/WinUSB-Geräteerkennung in Wine, unabhängig vom
+eigentlichen Fan-Speed-Protokoll.
+
+**Revidiertes Fazit:** Die Aussage "Lüfterdrehzahl per Software setzen ist
+nicht möglich" ist nach diesem Fund zu stark. Korrekter: die Original-Software
+hat nachweislich echten, funktionsfähig aussehenden Code dafür (nicht nur
+UI-Attrappe), spezifisch für dieses Gerät (VID/PID-Übereinstimmung im
+Handbuch). Ob er auf der eigenen Hardware tatsächlich wirkt, konnte weder
+durch eigene Byte-Level-Tests (die bislang immer wirkungslos blieben) noch
+durch einen Live-Test unter Wine (Geräteerkennung schlug fehl) geklärt
+werden. **Der einzige verbleibende schlüssige Test ist echtes Windows**
+(reale Maschine oder VM mit funktionierendem USB-Passthrough), wo die
+Geräteerkennung voraussichtlich funktioniert und der tatsächliche
+USB-Traffic beim Klicken von "AI Low/Medium/High Mode" beobachtet werden
+könnte.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum
