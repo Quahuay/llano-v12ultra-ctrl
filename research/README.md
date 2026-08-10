@@ -18,8 +18,11 @@ QEMU/KVM) - die Fan-Curve-Logik kann daher in einer VM grundsätzlich nie eine T
 sehen, unabhängig von echter CPU-Last. Ein wirklich abschließender Test bräuchte eine physische
 Windows-Maschine mit echten Sensoren.
 
-Die folgenden Schritte dokumentieren den durchgeführten Testablauf (für Reproduktion oder falls
-das Thema mit einer echten Maschine erneut aufgegriffen wird).
+Die folgenden Schritte dokumentieren den durchgeführten Testablauf (Referenz/Reproduktion).
+
+**Fortsetzung mit echter Hardware:** siehe [`windows_remote_setup.md`](windows_remote_setup.md) -
+eine echte Windows-Maschine mit echten Sensoren macht den VM-Sensor-Blocker (NACHTRAG 7) hinfällig
+und erlaubt einen echten AI-Mode-Stresstest. Die VM aus diesem Test wurde bereits gelöscht.
 
 ## Ablauf
 
