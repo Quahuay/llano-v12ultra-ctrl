@@ -65,14 +65,9 @@ def cmd_power(args):
 
 
 def cmd_fan_speed(args):
-    print(
-        "Hinweis: auf diesem Gerät (llano V12 Ultra, 374a:b101) nachweislich wirkungslos "
-        "- siehe protocol.py NACHTRAG 1-4. Forward-kompatibel vorbereitet für andere "
-        "Firmware-Revisionen, die dieses Feld eventuell auswerten."
-    )
     with device_mod.Device() as dev:
         r = dev.set_fan_speed(args.raw)
-    print(f"Byte 1 (fan_speed) auf {args.raw} gesetzt (raw={r.raw.hex(' ')}) - Lüfterdrehzahl laut Report weiterhin {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
+    print(f"Lüfterdrehzahl auf raw={args.raw} gesetzt -> Report zeigt {r.fan_rpm} U/min (raw={r.fan_speed_raw})")
     return 0
 
 
@@ -237,7 +232,7 @@ def build_parser():
     p_power.add_argument("state", choices=["on", "off"])
     p_power.set_defaults(func=cmd_power)
 
-    p_fan_speed = sub.add_parser("fan-speed", help="Byte 1 (fan_speed) des Feature-Reports schreiben - auf diesem Gerät nachweislich wirkungslos, forward-kompatibel vorbereitet (siehe protocol.py)")
+    p_fan_speed = sub.add_parser("fan-speed", help="Lüfterdrehzahl setzen (eigenes Fan-Kommando, siehe protocol.py NACHTRAG 8)")
     p_fan_speed.add_argument("raw", type=int, help="1-100")
     p_fan_speed.set_defaults(func=cmd_fan_speed)
 

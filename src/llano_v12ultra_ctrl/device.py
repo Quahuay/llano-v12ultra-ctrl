@@ -119,24 +119,16 @@ class _LinuxDevice:
         return self.get_report()
 
     def set_fan_speed(self, raw: int) -> protocol.Report:
-        """Schreibt Byte 1 (fan_speed-Position) des Feature-Reports, alle
-        anderen Werte bleiben unverändert. Siehe protocol.py, NACHTRAG 1-4:
-        auf diesem physischen Gerät (llano V12 Ultra, 374a:b101) nachweislich
-        wirkungslos - erschöpfend getestet (gezielte Hypothesen, vollständiger
-        64x256-Fuzz, Pcap-Analyse der Original-App, Analyse von MythCool.exe).
-        Trotzdem als forward-kompatible Methode vorbereitet, falls eine andere
-        Firmware-Revision dieses Feld doch auswertet. Live getestet
-        (2026-08-10): Schreiben funktioniert technisch fehlerfrei, Byte 1
-        bleibt danach unverändert der echte Telemetriewert - bestätigt
-        wirkungslos auf diesem Gerät, keine Nebenwirkungen."""
+        """Setzt die Lüfterdrehzahl über das eigene Fan-Kommando (siehe
+        protocol.py NACHTRAG 8, build_fan_report) - per Live-USB-Capture der
+        echten App auf echtem Windows gefunden und vom Nutzer live bestätigt
+        (Drehzahl ändert sich hör-/sichtbar). Frühere Versuche schrieben
+        Byte 1 im LICHT-Kommando (BYTE0_CONST=0x00), was nachweislich
+        wirkungslos war, weil das Gerät dieses Byte dort schlicht ignoriert -
+        das eigentliche Fan-Kommando braucht ein eigenes byte0/byte4-Muster."""
         if not 1 <= raw <= 100:
             raise ValueError("raw muss zwischen 1 und 100 liegen (siehe protocol.py fan_speed_raw-Bereich)")
-        current = self.get_report()
-        report = protocol.build_report(
-            color=current.color, effect=current.effect_raw if current.light_on else 0,
-            speed=current.speed, light_on=current.light_on, brightness=current.brightness,
-            power=current.power_on, byte1=raw,
-        )
+        report = protocol.build_fan_report(raw)
         buf = self._ctypes.create_string_buffer(report, protocol.REPORT_LEN)
         self._fcntl.ioctl(self._fd, self._hidiocsfeature(protocol.REPORT_LEN), buf, True)
         return self.get_report()
@@ -213,16 +205,10 @@ class _WindowsDevice:
 
     def set_fan_speed(self, raw: int) -> protocol.Report:
         """Siehe _LinuxDevice.set_fan_speed - identische Semantik, hier über
-        hidapi statt ioctl. Ebenfalls ungetestet (weder gegen Hardware noch
-        unter Windows selbst)."""
+        hidapi statt ioctl."""
         if not 1 <= raw <= 100:
             raise ValueError("raw muss zwischen 1 und 100 liegen (siehe protocol.py fan_speed_raw-Bereich)")
-        current = self.get_report()
-        report = protocol.build_report(
-            color=current.color, effect=current.effect_raw if current.light_on else 0,
-            speed=current.speed, light_on=current.light_on, brightness=current.brightness,
-            power=current.power_on, byte1=raw,
-        )
+        report = protocol.build_fan_report(raw)
         self._dev.send_feature_report(list(report))
         return self.get_report()
 

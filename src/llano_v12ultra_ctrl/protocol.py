@@ -435,6 +435,46 @@ beobachten - das war im Rahmen dieser Untersuchung nicht mehr sinnvoll
 umsetzbar. `set_fan_speed()` bleibt aus Kompatibilitätsgründen im Code,
 ist aber sowohl in der CLI-Hilfe als auch in der GUI klar als "ohne
 nachgewiesene Wirkung auf dieser Hardware" gekennzeichnet.
+
+NACHTRAG 8 (DURCHBRUCH - echtes eigenes Fan-Kommando gefunden, 2026-08-10):
+NACHTRAG 7 wurde noch am selben Tag widerlegt. Test auf einer ECHTEN
+physischen Windows-10-Maschine (nicht VM - kein Sensor-Blocker mehr) via
+SSH-Fernsteuerung, USBPcap/Wireshark-Live-Capture auf beiden USB-Root-Hubs,
+während der Nutzer in der echten App eigene Lüfterkurven/-drehzahlen
+eingestellt hat. Ergebnis: Drehzahl änderte sich nachweislich hör- und
+sichtbar (auch auf dem Pad-Display) - UND im Capture erschienen zum ersten
+Mal echte SET_REPORT-Aufrufe mit einer Vielzahl unterschiedlicher,
+gezielter fan_speed-Werte (1, 14, 18, 21, 25, 36, 50, 57, 71, 98 - passend
+zu den vom Nutzer gesetzten Kurvenpunkten).
+
+Der Grund, warum das nie zuvor funktionierte: es ist ein KOMPLETT EIGENES
+Kommando, keine Variante des Licht-Kommandos. Byte-Layout (7-Byte-Body vor
+der Checksumme, gleiche Position/Formel wie beim Licht-Kommando):
+  byte0 = 0x01 ("Lüfterdrehzahl jetzt setzen") bzw. 0x00 (periodische
+          Bestätigung des aktuellen Werts, alle ~5s beobachtet) bzw. 0x80
+          (reiner Herzschlag/Poll, byte1-6 alle 0)
+  byte1 = Lüfterdrehzahl raw 1-100 (identische Skala wie fan_speed_raw
+          beim Auslesen)
+  byte2 = 0x00 (fest)
+  byte3 = 0x00 (fest)
+  byte4 = 0x02 (fest - Unterkommando-Kennung)
+  byte5 = 0x00 (fest)
+  byte6 = 0xff (fest)
+  byte7 = Checksumme (gleiche Formel wie beim Licht-Kommando)
+
+Das Licht-Kommando (build_report) nutzt zufällig ebenfalls byte0=0x00
+(BYTE0_CONST), aber mit byte4=Farbe(0-4) statt der festen 0x02-Kennung und
+byte1 dort komplett wirkungslos - genau DAS haben alle bisherigen Tests
+(NACHTRAG 1-7) über Jahre hinweg geschrieben. Byte0=0x01 wird vom
+Licht-Kommando nie verwendet und ist damit eindeutig/kollisionsfrei -
+`build_fan_report()` nutzt deshalb ausschließlich 0x01 für einmalige
+Set-Befehle.
+
+`set_fan_speed()` in device.py wurde auf `build_fan_report()` umgestellt.
+Noch ausstehend: Live-Verifikation auf dem eigenen Linux-Gerät (Pad muss
+dafür vom Windows-Testrechner zurück an den Linux-Host gesteckt werden) -
+das HID-Protokoll ist plattformunabhängig, sollte also 1:1 funktionieren,
+aber unabhängige Bestätigung steht noch aus.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum
@@ -484,7 +524,8 @@ def build_report(color, effect=0, speed=0x00, light_on=True, brightness=0xFF, po
                 Lüftermotor (schreibt byte2/kill_flag). Reiner Ein/Aus-
                 Schalter, keine Zwischenstufen.
     byte1:      wird mitgeschickt (wie von der echten App beobachtet), hat
-                aber nachweislich keine Wirkung auf die Lüftergeschwindigkeit.
+                aber KEINE Wirkung auf die Lüftergeschwindigkeit - dafür gibt
+                es ein eigenes Kommando, siehe build_fan_report() (NACHTRAG 8).
     """
     effect_byte = EFFECT_OFF if not light_on else (effect & 0xFF)
     body7 = [
@@ -496,6 +537,34 @@ def build_report(color, effect=0, speed=0x00, light_on=True, brightness=0xFF, po
         speed & 0xFF,
         brightness & 0xFF,
     ]
+    return bytes([0x00] + body7 + [checksum(body7)])
+
+
+# Eigenständiges Lüfterdrehzahl-Kommando, gefunden per Live-USB-Capture gegen
+# die echte App auf echtem Windows (NACHTRAG 8). Kollidiert bewusst nie mit
+# build_report(): byte0=0x01 wird vom Licht-Kommando (BYTE0_CONST=0x00) nie
+# verwendet.
+FAN_SET_BYTE0 = 0x01
+FAN_SUBCOMMAND_TAG = 0x02  # fester Wert in byte4, unterscheidet vom Licht-Kommando
+
+
+def build_fan_report(fan_raw):
+    """Baut den 9-Byte-Report, der die Lüfterdrehzahl WIRKLICH setzt.
+
+    fan_raw: 1-100, gleiche Skala wie Report.fan_speed_raw/fan_rpm beim
+             Auslesen (raw=1 -> 300 U/min, raw=100 -> 2800 U/min).
+
+    Byte-Layout (durch Live-Capture der echten App verifiziert):
+      byte0 = 0x01 (Kommando "Lüfterdrehzahl setzen")
+      byte1 = fan_raw
+      byte2 = 0x00
+      byte3 = 0x00
+      byte4 = 0x02 (Unterkommando-Kennung)
+      byte5 = 0x00
+      byte6 = 0xff
+      byte7 = Checksumme
+    """
+    body7 = [FAN_SET_BYTE0, fan_raw & 0xFF, 0x00, 0x00, FAN_SUBCOMMAND_TAG, 0x00, 0xFF]
     return bytes([0x00] + body7 + [checksum(body7)])
 
 

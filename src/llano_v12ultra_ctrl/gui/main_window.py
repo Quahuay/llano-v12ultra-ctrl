@@ -178,17 +178,17 @@ class MainWindow(QMainWindow):
         return box
 
     def _build_fan_speed_group(self):
-        box = QGroupBox("Fan-Speed (experimentell)")
+        box = QGroupBox("Fan-Speed")
         layout = QVBoxLayout(box)
 
         warning = QLabel(
-            "Auf diesem Gerät (llano V12 Ultra, 374a:b101) nachweislich wirkungslos - "
-            "erschöpfend getestet (Sweep, Pcap-Analyse der Original-App, Analyse von "
-            "MythCool.exe). Nur für andere Firmware-Revisionen vorbereitet, die dieses "
-            "Feld eventuell auswerten. Details: protocol.py NACHTRAG 1-4."
+            "Per Live-USB-Capture gegen die echte App gefundenes Fan-Kommando "
+            "(protocol.py NACHTRAG 8) - Wirkung auf echtem Windows vom Nutzer live "
+            "bestätigt (Drehzahl ändert sich hör-/sichtbar). Verifikation auf diesem "
+            "Linux-Gerät steht noch aus."
         )
         warning.setWordWrap(True)
-        warning.setStyleSheet("color: #b8860b; font-size: 11px;")
+        warning.setStyleSheet("color: #808080; font-size: 11px;")
         layout.addWidget(warning)
 
         row = QHBoxLayout()
@@ -356,10 +356,8 @@ class MainWindow(QMainWindow):
         self._update_status_labels(report)
 
     def _apply_fan_speed(self):
-        """Schreibt Byte 1 (fan_speed) - auf diesem Gerät nachweislich
-        wirkungslos, siehe protocol.py NACHTRAG 1-4. Forward-kompatibel
-        vorbereitet, falls eine andere Firmware-Revision dieses Feld
-        auswertet."""
+        """Setzt die Lüfterdrehzahl über das eigene Fan-Kommando, siehe
+        protocol.py NACHTRAG 8."""
         if self._device is None:
             return
         raw = self.fan_speed_slider.value()
