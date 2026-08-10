@@ -67,7 +67,7 @@ def main():
         except ValueError:
             continue
         by_type[report_type] = by_type.get(report_type, 0) + 1
-        if r[2] == "9" and len(r) > 5 and r[5]:
+        if r[2] in ("9", "0x09") and len(r) > 5 and r[5]:
             payload = bytes.fromhex(r[5])
             if len(payload) > 1:
                 byte1_values.add(payload[1])

@@ -33,7 +33,7 @@ VID="0x374a"
 PID="0xb101"
 DISK_SIZE_GB=80
 RAM_MB=8192
-VCPUS=4
+VCPUS=8
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
