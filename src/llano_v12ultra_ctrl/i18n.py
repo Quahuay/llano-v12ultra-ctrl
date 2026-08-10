@@ -205,6 +205,12 @@ _EN = {
     "gui.language.restart_hint": "Takes effect after restarting the app.",
     "gui.language.en": "English",
     "gui.language.de": "Deutsch",
+
+    # --- update check ---
+    "update.cli.available": "A newer version is available: {latest} (installed: {current}) - {url}",
+    "update.gui.available": "Update available: {latest} (installed: {current})",
+    "update.gui.download": "Download",
+    "update.gui.package_manager": "Update available: {latest} - update via your package manager",
 }
 
 # ------------------------------------------------------------------ Deutsch
@@ -368,6 +374,12 @@ _DE = {
     "gui.language.restart_hint": "Wirkt nach einem Neustart der Anwendung.",
     "gui.language.en": "English",
     "gui.language.de": "Deutsch",
+
+    # --- update check ---
+    "update.cli.available": "Eine neuere Version ist verfügbar: {latest} (installiert: {current}) - {url}",
+    "update.gui.available": "Update verfügbar: {latest} (installiert: {current})",
+    "update.gui.download": "Herunterladen",
+    "update.gui.package_manager": "Update verfügbar: {latest} - Update über den Paketmanager verfügbar",
 }
 
 _TRANSLATIONS = {"en": _EN, "de": _DE}

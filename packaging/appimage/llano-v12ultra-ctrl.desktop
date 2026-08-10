@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=llano-v12ultra-ctrl
+Comment=Control tool for the llano V12 Ultra USB-HID cooling pad
+Exec=llano-v12ultra-ctrl-gui
+Icon=llano-v12ultra-ctrl
+Categories=Utility;
+Terminal=false

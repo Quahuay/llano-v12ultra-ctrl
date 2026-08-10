@@ -12,6 +12,10 @@ DEFAULT_CONFIG = {
         # LLANO_LANGUAGE überschrieben werden (siehe i18n.py) - praktisch
         # für einen einzelnen Aufruf, ohne die Config dauerhaft zu ändern.
         "language": "en",
+        # Einmal pro 24h leise gegen die GitHub-Releases-API prüfen, ob eine
+        # neuere Version existiert (siehe update_check.py). Rein informativ -
+        # kein Silent-Self-Updater. false deaktiviert die Prüfung komplett.
+        "update_check": True,
     },
     "auto": {
         "temp_sensor": None,  # None = automatisch erkennen (coretemp/k10temp)

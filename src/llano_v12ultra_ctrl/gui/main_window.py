@@ -33,7 +33,9 @@ from .. import fan_curve as fan_curve_mod
 from .. import i18n
 from .. import profiles as profiles_mod
 from .. import protocol
+from .. import update_check as update_check_mod
 from . import device_worker, service_control
+from .update_worker import UpdateCheckThread
 from .widgets import FanCurveEditor, Sparkline
 
 POLL_INTERVAL_MS = 300  # wie cmd_monitor-Default (--interval 0.3)
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
         self._device = None  # device.Device | None (offen solange verbunden)
         self._last_report = None  # zuletzt gelesener protocol.Report
         self._auto_active = None  # bool | None (unbekannt bis erster Poll)
+        self._update_thread = None  # Referenz halten, solange der Check läuft (sonst GC-Risiko)
 
         self._build_ui()
 
@@ -74,6 +77,7 @@ class MainWindow(QMainWindow):
 
         self._try_connect()
         self._poll_service()
+        self._start_update_check()
 
     # ------------------------------------------------------------- UI-Aufbau
 
@@ -83,6 +87,19 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
 
         root.addWidget(self._build_language_group())
+
+        self.update_banner = QWidget()
+        self.update_banner.setStyleSheet("background-color: #2e6b2e;")
+        update_banner_layout = QHBoxLayout(self.update_banner)
+        self.lbl_update_banner = QLabel("")
+        self.lbl_update_banner.setStyleSheet("color: white; font-weight: bold;")
+        self.update_download_button = QPushButton(i18n.t("update.gui.download"))
+        self.update_download_button.clicked.connect(self._open_download_page)
+        update_banner_layout.addWidget(self.lbl_update_banner)
+        update_banner_layout.addWidget(self.update_download_button)
+        update_banner_layout.addStretch()
+        self.update_banner.setVisible(False)
+        root.addWidget(self.update_banner)
 
         self.disconnect_banner = QLabel(i18n.t("gui.disconnect_banner"))
         self.disconnect_banner.setStyleSheet(
@@ -734,9 +751,49 @@ class MainWindow(QMainWindow):
             service_control.start()
         self._poll_service()
 
+    # ------------------------------------------------------------ Update-Check
+
+    def _start_update_check(self):
+        cfg = config_mod.load_config()
+        if not cfg.get("general", {}).get("update_check", True):
+            return
+        # QThread statt direktem check_for_update()-Aufruf: das ist ein
+        # Netzwerk-Call (bis zu TIMEOUT_S), der sonst den Qt-Event-Loop
+        # blockieren würde - siehe update_worker.py.
+        self._update_thread = UpdateCheckThread(self)
+        self._update_thread.finished_with_result.connect(self._on_update_check_result)
+        self._update_thread.start()
+
+    def _on_update_check_result(self, latest):
+        if not latest:
+            return
+        if update_check_mod.installed_via_package_manager():
+            self.lbl_update_banner.setText(i18n.t("update.gui.package_manager", latest=latest))
+            self.update_download_button.setVisible(False)
+        else:
+            self.lbl_update_banner.setText(
+                i18n.t("update.gui.available", latest=latest, current=update_check_mod.CURRENT_VERSION)
+            )
+            self.update_download_button.setVisible(True)
+        self.update_banner.setVisible(True)
+
+    def _open_download_page(self):
+        import webbrowser
+
+        webbrowser.open(update_check_mod.RELEASES_URL)
+
     # ---------------------------------------------------------------- Ende
 
     def closeEvent(self, event):
         if self._device is not None:
             self._device.close()
+        if self._update_thread is not None and self._update_thread.isRunning():
+            # Muss mindestens update_check.TIMEOUT_S abdecken (+ Marge) -
+            # Qt bricht mit qFatal() hart ab ("QThread: Destroyed while
+            # thread is still running"), wenn das QThread-Objekt zerstört
+            # wird, während run() noch im blockierenden Netzwerk-Call
+            # steckt. Live gefunden: ein zu kurzer Wait (100ms) crashte
+            # zuverlässig, wenn das Fenster geschlossen wurde, während der
+            # Update-Check noch lief.
+            self._update_thread.wait(int((update_check_mod.TIMEOUT_S + 1) * 1000))
         super().closeEvent(event)

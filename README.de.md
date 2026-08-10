@@ -38,6 +38,7 @@ Markennamen liegen bei ihren jeweiligen Inhabern.
 - [Automatikmodus (Temperatur-Indikator)](#automatikmodus-temperatur-indikator)
 - [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung)
 - [Windows-Status](#windows-status)
+- [Paket-Status](#paket-status)
 - [Protokoll-Dokumentation](#protokoll-dokumentation)
 - [Beitragen](#beitragen)
 - [Autoren](#autoren)
@@ -66,6 +67,10 @@ Markennamen liegen bei ihren jeweiligen Inhabern.
 - **CSV-Verlaufsprotokoll** (Temperatur/RPM/Farbe über Zeit), opt-in, für spätere Auswertung
 - **Kritisch-heiß-Alarm**: hohe Temperatur-Schwellen können statt nur einer anderen Farbe auch
   einen auffälligeren Effekt setzen (z.B. `chase`/Lauflicht)
+- **Leiser Update-Check** (abschaltbar): einmal alle 24h eine Prüfung gegen die GitHub-Releases-API
+  im Hintergrund - niemals ein stiller Self-Updater, nur ein Hinweis + Link (oder ein Hinweis
+  "Update über den Paketmanager", falls per `.deb`/Arch installiert), siehe `[general]
+  update_check` in [`config/config.example.toml`](config/config.example.toml)
 - Keine externen HID-Bibliotheken nötig: direkte `HIDIOCGFEATURE`/`HIDIOCSFEATURE`-ioctls auf
   `/dev/hidraw*`
 - Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)),
@@ -90,6 +95,25 @@ Der Automatikmodus (siehe unten) kann optional auch die Lüfterdrehzahl temperat
 [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung).
 
 ## Installation
+
+⚠️ Native Installer sind neu (siehe [Paket-Status](#paket-status) für den genauen
+Verifikationsstand) - Pakete/Binärdateien hängen an einem
+[GitHub Release](https://github.com/Quahuay/llano-v12ultra-ctrl/releases), sobald eine Version
+getaggt ist. Passenden Weg für die eigene Plattform wählen:
+
+| Plattform | Wie |
+|---|---|
+| Windows | `.msi` von [Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) herunterladen und ausführen - bringt eigenes Python, PyQt6 und `hidapi.dll` mit, keine separate Python-Installation nötig |
+| Debian/Ubuntu (apt-basiert) | `.deb` von Releases herunterladen, dann `sudo apt install ./llano-v12ultra-ctrl_*.deb` |
+| Arch-basiert | `PKGBUILD` in [`packaging/PKGBUILD`](packaging/PKGBUILD), zur AUR eingereicht als `llano-v12ultra-ctrl` (`yay -S llano-v12ultra-ctrl` sobald veröffentlicht) - oder selbst bauen mit `makepkg -si` |
+| Andere Linux-Distros | `.AppImage` von Releases herunterladen, `chmod +x`, direkt ausführen - keine Installation nötig. Startet standardmäßig die GUI; mit einem CLI-Unterbefehl (z.B. `./llano-v12ultra-ctrl-*.AppImage status`) stattdessen die CLI |
+
+`.deb`/Arch-Pakete brauchen trotzdem noch den udev-Regel-Schritt unten (bei `.deb` automatisch per
+Postinstall-Hook erledigt; bei Arch pickt udev die Regel beim nächsten Geräte-Event selbst auf).
+AppImage/MSI brauchen den Schritt ebenfalls, da sie ohne Root-Rechte laufen und ihn nicht selbst
+einrichten können.
+
+### Aus dem Quellcode installieren (pip/pipx)
 
 PyQt6 ist auf vielen Systemen (auch hier) ein **apt/Distro-Paket**, kein pip-Paket. Ein simples
 `pip install -e .` scheitert dadurch häufig an PEP 668 (`externally-managed-environment`). Zwei
@@ -242,6 +266,21 @@ CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an 
 
 Rückmeldungen von Windows-Nutzern, insbesondere mit laufendem LibreHardwareMonitor, sind
 willkommen (siehe [Beitragen](#beitragen)).
+
+## Paket-Status
+
+| Format | Status |
+|---|---|
+| `.msi` (Windows, `packaging/msi/`) | ⏳ Setup-Skript gegen die echte installierte `cx_Freeze`-API geprüft, Build noch nicht Ende-zu-Ende durchgelaufen (braucht einen Windows-CI-Runner oder die Windows-Testmaschine) |
+| `.deb` (`packaging/deb/`) | ⏳ Staging-Schritt (Dateilayout, Wrapper-Skripte, Importpfad) lokal verifiziert; der eigentliche `fpm`-Packaging-Schritt selbst noch nicht durchgelaufen (kein `fpm` in dieser Dev-Umgebung) |
+| Arch-`PKGBUILD` (`packaging/PKGBUILD`) | ⏳ Wheel-Build lokal verifiziert (korrekte Version, Entry-Points); noch nicht durch `makepkg` auf echtem Arch durchgelaufen |
+| AppImage (`packaging/appimage/`) | ⏳ `AppRun`/`.desktop`-Syntax geprüft; voller Build noch nicht durchgelaufen (kein `python3-venv`/`linuxdeploy` in dieser Dev-Umgebung) |
+
+Alle vier werden im [`release.yml`](.github/workflows/release.yml) GitHub-Actions-Workflow gebaut,
+ausgelöst durch das Pushen eines `v*`-Tags - das ist der eigentliche erste Ende-zu-Ende-Test für
+jedes davon. Bis das gelaufen und bestätigt ist, gilt das Packaging als neu und noch nicht
+kampferprobt (die Funktionalität selbst - HID-Protokoll, Lüfterkurve, Profile, Automatikmodus - ist
+davon unabhängig, das betrifft nur, wie derselbe Code installiert wird).
 
 ## Protokoll-Dokumentation
 

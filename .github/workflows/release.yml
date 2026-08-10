@@ -1,0 +1,117 @@
+name: Release artifacts
+
+# Baut alle vier Installer-Formate (siehe packaging/) und hängt sie an ein
+# GitHub Release an. Läuft auf CI-Runnern statt lokal, weil die Dev-Umgebung
+# in dieser Session weder fpm/ruby noch makepkg/Arch noch linuxdeploy/FUSE
+# noch ein zweites Python für den MSI-Build hatte - siehe die "NICHT auf der
+# Dev-Maschine getestet"-Kommentare in den einzelnen packaging/*-Skripten.
+#
+# Voraussetzung zum Pushen dieser Datei: das gh-Token braucht den
+# `workflow`-Scope (`gh auth refresh -h github.com -s workflow`) - ohne den
+# lehnt GitHub den Push von .github/workflows/-Dateien über HTTPS ab.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install fpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+      - name: Build .deb
+        run: bash packaging/deb/build.sh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: dist/*.deb
+
+  appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FUSE (needed to run linuxdeploy/AppImages)
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+      - name: Build AppImage
+        run: bash packaging/appimage/build.sh dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/*.AppImage
+
+  arch:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: |
+          pacman -Sy --noconfirm base-devel python python-build python-installer python-wheel python-pyqt6 git
+          useradd -m builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+      - name: Build package
+        run: |
+          cp packaging/PKGBUILD .
+          chown builder:builder PKGBUILD
+          su builder -c "makepkg --noconfirm --skipchecksums"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: "*.pkg.tar.zst"
+
+  msi:
+    # Python 3.12 (nicht der 3.14 des lokalen Windows-Testsystems): 3.12
+    # hat msilib noch in der Standardbibliothek, cx_Freezes bdist_msi
+    # braucht das - ab 3.13 wäre zusätzlich das python-msilib-Backport-Paket
+    # nötig, siehe packaging/msi/cx_freeze_setup.py. Der gebaute Installer
+    # selbst bringt sein eigenes gebündeltes Python mit, betrifft also nur
+    # den Build-Schritt hier, nicht was der Endnutzer installiert bekommt.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build dependencies
+        run: pip install ".[gui]" cx_Freeze
+      - name: Download hidapi.dll
+        shell: bash
+        run: |
+          curl -sL -o hidapi-win.zip https://github.com/libusb/hidapi/releases/latest/download/hidapi-win.zip
+          unzip -o hidapi-win.zip x64/hidapi.dll -d hidapi-extracted
+          cp hidapi-extracted/x64/hidapi.dll packaging/msi/hidapi.dll
+      - name: Build MSI
+        run: python packaging/msi/cx_freeze_setup.py bdist_msi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msi-installer
+          path: dist/*.msi
+
+  release:
+    needs: [deb, appimage, arch, msi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            deb-package/*.deb
+            appimage/*.AppImage
+            arch-package/*.pkg.tar.zst
+            msi-installer/*.msi

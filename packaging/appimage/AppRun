@@ -1,0 +1,16 @@
+#!/bin/bash
+# Entscheidet zwischen GUI (Standard, kein Argument) und CLI (falls das
+# erste Argument einer der bekannten cli.py-Unterbefehle ist) - ein
+# AppImage deckt damit beide Nutzungsarten ab, ohne zwei Dateien pflegen
+# zu müssen.
+HERE="$(dirname "$(readlink -f "${0}")")"
+PYTHON="$HERE/usr/bin/python3"
+
+case "${1:-}" in
+    status|light|power|fan-speed|monitor|raw-input|auto)
+        exec "$PYTHON" -m llano_v12ultra_ctrl.cli "$@"
+        ;;
+    *)
+        exec "$PYTHON" -m llano_v12ultra_ctrl.gui.app "$@"
+        ;;
+esac

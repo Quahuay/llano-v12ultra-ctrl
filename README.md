@@ -37,6 +37,7 @@ mentioned brand names belong to their respective owners.
 - [Auto Mode (Temperature Indicator)](#auto-mode-temperature-indicator)
 - [Fan Curve & Fan Reminder](#fan-curve--fan-reminder)
 - [Windows Status](#windows-status)
+- [Packaging Status](#packaging-status)
 - [Protocol Documentation](#protocol-documentation)
 - [Contributing](#contributing)
 - [Authors](#authors)
@@ -65,6 +66,10 @@ mentioned brand names belong to their respective owners.
 - **CSV history log** (temperature/RPM/color over time), opt-in, for later analysis
 - **Critical-heat alert**: high temperature thresholds can set a more noticeable effect instead of
   just a different color (e.g. `chase`)
+- **Quiet update check** (opt-out): once every 24h, a background check against GitHub Releases -
+  never a silent self-updater, just a notice + link (or a "update via your package manager" hint
+  if installed via `.deb`/Arch), see `[general] update_check` in
+  [`config/config.example.toml`](config/config.example.toml)
 - No external HID libraries needed: direct `HIDIOCGFEATURE`/`HIDIOCSFEATURE` ioctls on
   `/dev/hidraw*`
 - Fully documented HID protocol (see [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)),
@@ -87,7 +92,25 @@ disabled by default) - see [Fan Curve & Fan Reminder](#fan-curve--fan-reminder).
 
 ## Installation
 
-PyQt6 is a **apt/distro package** on many systems (including this one), not a pip package. A
+⚠️ Native installers are new (see [Packaging Status](#packaging-status) for what's still unverified
+beyond a local dry run) - packages/binaries are attached to
+[GitHub Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) once a version is
+tagged. Pick the path for your platform:
+
+| Platform | How |
+|---|---|
+| Windows | Download the `.msi` from [Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) and run it - bundles its own Python, PyQt6, and `hidapi.dll`, no separate Python install needed. |
+| Debian/Ubuntu (apt-based) | Download the `.deb` from Releases, then `sudo apt install ./llano-v12ultra-ctrl_*.deb` |
+| Arch-based | `PKGBUILD` in [`packaging/PKGBUILD`](packaging/PKGBUILD), submitted to the AUR as `llano-v12ultra-ctrl` (`yay -S llano-v12ultra-ctrl` once published) - or build it yourself with `makepkg -si` |
+| Any other Linux distro | Download the `.AppImage` from Releases, `chmod +x`, run it directly - no installation needed. Runs the GUI by default; pass a CLI subcommand (e.g. `./llano-v12ultra-ctrl-*.AppImage status`) to use the CLI instead |
+
+The `.deb`/Arch packages still need the udev rule step below (handled automatically for `.deb` via
+a postinstall hook; Arch's udev picks the rule up on the next device event). The AppImage/MSI paths
+need it too, since they don't have root access to install it themselves.
+
+### Install from source (pip/pipx)
+
+PyQt6 is an **apt/distro package** on many systems (including this one), not a pip package. A
 simple `pip install -e .` therefore often fails on PEP 668
 (`externally-managed-environment`). Two paths, depending on your system:
 
@@ -239,6 +262,21 @@ refining your own fan curve based on real load data.
 
 Feedback from Windows users, especially with LibreHardwareMonitor running, is welcome (see
 [Contributing](#contributing)).
+
+## Packaging Status
+
+| Format | Status |
+|---|---|
+| `.msi` (Windows, `packaging/msi/`) | ⏳ Setup script verified against the real installed `cx_Freeze` API, build not yet run end to end (needs a Windows CI runner or the Windows test machine) |
+| `.deb` (`packaging/deb/`) | ⏳ Staging step (file layout, wrapper scripts, import path) verified locally; the actual `fpm` packaging step itself not yet run (no `fpm` in this dev environment) |
+| Arch `PKGBUILD` (`packaging/PKGBUILD`) | ⏳ Wheel build verified locally (correct version, entry points); not yet run through `makepkg` on real Arch |
+| AppImage (`packaging/appimage/`) | ⏳ `AppRun`/`.desktop` syntax-checked; full build not yet run (no `python3-venv`/`linuxdeploy` in this dev environment) |
+
+All four build in the [`release.yml`](.github/workflows/release.yml) GitHub Actions workflow,
+triggered by pushing a `v*` tag - that's the actual first end-to-end test for each of them. Until
+that's run and confirmed, treat the packaging as new and not yet battle-tested (functionality
+itself - HID protocol, fan curve, profiles, auto mode - is unaffected either way, this only affects
+how the same code gets installed).
 
 ## Protocol Documentation
 

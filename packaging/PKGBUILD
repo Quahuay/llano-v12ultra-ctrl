@@ -1,0 +1,45 @@
+# Maintainer: Quahuay
+#
+# NICHT auf der Dev-Maschine gebaut/getestet (kein Arch/makepkg dort
+# verfügbar, siehe Session-Notizen) - Build+Test läuft über einen
+# `archlinux`-Docker-Container in der GitHub-Actions-Pipeline, siehe
+# .github/workflows/release.yml. Vor der AUR-Einreichung lokal auf einer
+# echten Arch-Maschine mit `makepkg -si` gegenprüfen.
+#
+# .SRCINFO für AUR-Einreichung generieren mit:
+#   makepkg --printsrcinfo > .SRCINFO
+
+pkgname=llano-v12ultra-ctrl
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Native Linux control tool for the llano V12 Ultra USB-HID cooling pad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6 GUI"
+arch=('any')
+url="https://github.com/Quahuay/llano-v12ultra-ctrl"
+license=('MIT')
+depends=('python' 'python-pyqt6')
+optdepends=('python-plyer: desktop notifications for the fan-reminder auto-mode feature')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/Quahuay/llano-v12ultra-ctrl/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # per Release mit `updpkgsums` aktualisieren
+
+build() {
+    cd "$pkgname-$pkgver"
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+
+    # udev-Regel + systemd-User-Service, analog zum .deb-Paket (siehe
+    # packaging/deb/build.sh) - Arch installiert diese Pfade automatisch
+    # ohne separaten Postinstall-Hook (kein reload-rules per pacman-Hook
+    # nötig, udev pickt neue Regeln beim nächsten Geräte-Event selbst auf;
+    # README weist trotzdem auf `udevadm control --reload-rules` hin, falls
+    # das Pad schon eingesteckt war).
+    install -Dm644 packaging/70-llano-v12ultra-ctrl.rules \
+        "$pkgdir/usr/lib/udev/rules.d/70-llano-v12ultra-ctrl.rules"
+    install -Dm644 systemd/llano-v12ultra-ctrl.service \
+        "$pkgdir/usr/lib/systemd/user/llano-v12ultra-ctrl.service"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

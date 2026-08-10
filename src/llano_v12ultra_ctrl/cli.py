@@ -10,13 +10,30 @@ from . import i18n
 from . import notify as notify_mod
 from . import protocol
 from . import temp as temp_mod
+from . import update_check as update_check_mod
 
 
 def _yn(value):
     return i18n.t("common.on") if value else i18n.t("common.off")
 
 
+def _maybe_print_update_notice():
+    """Einzeiliger, leiser Hinweis bei status/auto, falls eine neuere
+    Version existiert (siehe update_check.py - 24h-Cache, kein Netzwerk-Call
+    bei jedem Aufruf). Per [general] update_check=false abschaltbar."""
+    cfg = config_mod.load_config()
+    if not cfg.get("general", {}).get("update_check", True):
+        return
+    latest = update_check_mod.check_for_update()
+    if latest:
+        print(i18n.t(
+            "update.cli.available", latest=latest, current=update_check_mod.CURRENT_VERSION,
+            url=update_check_mod.RELEASES_URL,
+        ))
+
+
 def cmd_status(args):
+    _maybe_print_update_notice()
     with device_mod.Device() as dev:
         r = dev.get_report()
     print(i18n.t("cli.status.device", path=dev.path))
@@ -117,6 +134,7 @@ def cmd_raw_input(args):
 
 
 def cmd_auto(args):
+    _maybe_print_update_notice()
     cfg = config_mod.load_config(args.config)
     auto_cfg = cfg["auto"]
 

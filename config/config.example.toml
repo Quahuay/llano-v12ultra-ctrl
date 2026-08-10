@@ -12,6 +12,10 @@
 # CLI/GUI language: "en" (default) or "de". Can also be overridden per call
 # via the LLANO_LANGUAGE environment variable without touching this file.
 language = "en"
+# Once every 24h, quietly check GitHub Releases for a newer version (see
+# update_check.py) - never a silent self-updater, just a notice + link.
+# false disables the check entirely (no network call).
+update_check = true
 
 [auto]
 # null/commented out = auto-detect (coretemp "Package id 0" or k10temp "Tctl"/"Tdie")

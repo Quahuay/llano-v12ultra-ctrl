@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llano-v12ultra-ctrl"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Native Linux control tool for the llano V12 Ultra USB-HID cooling pad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6 GUI"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,3 +25,9 @@ llano-v12ultra-ctrl-gui = "llano_v12ultra_ctrl.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+# Einzige Versionsquelle bleibt __init__.py (__version__) - packaging-Configs
+# (cx_Freeze/fpm/PKGBUILD/AppImage, siehe packaging/) UND update_check.py
+# lesen von dort statt hier zu duplizieren.
+version = { attr = "llano_v12ultra_ctrl.__version__" }
