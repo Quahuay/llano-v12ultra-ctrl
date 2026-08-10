@@ -32,7 +32,7 @@ VM_NAME="mythcool-win-test"
 VID="0x374a"
 PID="0xb101"
 DISK_SIZE_GB=40
-RAM_MB=4096
+RAM_MB=6144
 VCPUS=2
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -64,19 +64,22 @@ cmd_create() {
     echo "Fehler: ISO nicht gefunden: $iso_path" >&2
     exit 1
   fi
-  echo "Erstelle VM '$VM_NAME' (${RAM_MB}MB RAM, ${VCPUS} vCPUs, ${DISK_SIZE_GB}GB Disk)..."
+  echo "Erstelle VM '$VM_NAME' (${RAM_MB}MB RAM, ${VCPUS} vCPUs, ${DISK_SIZE_GB}GB Disk, UEFI+TPM2.0 fuer Windows 11)..."
   virt-install \
     --name "$VM_NAME" \
     --memory "$RAM_MB" \
     --vcpus "$VCPUS" \
     --disk size="$DISK_SIZE_GB",format=qcow2 \
     --cdrom "$iso_path" \
-    --os-variant win10 \
+    --os-variant win11 \
     --network network=default,model=e1000e \
     --graphics spice \
     --video qxl \
     --channel spicevmc \
     --sound ich9 \
+    --boot uefi \
+    --tpm backend.type=emulator,backend.version=2.0,model=tpm-crb \
+    --features smm=on \
     --noautoconsole
   echo "VM erstellt und gestartet. Fenster öffnen mit:"
   echo "  virt-viewer $VM_NAME &"
@@ -157,10 +160,15 @@ cmd_status() {
 }
 
 cmd_destroy() {
-  read -p "VM '$VM_NAME' WIRKLICH komplett löschen inkl. Festplatte? [j/N] " confirm
+  # WICHTIG: bewusst NICHT --remove-all-storage - das entfernt blind ALLE
+  # angehaengten Datentraeger inklusive der als --cdrom eingehaengten
+  # Windows-ISO (die nur "ausgeliehen", nicht Eigentum der VM ist!). Das ist
+  # bereits einmal einer echten ISO-Datei zum Verhaengnis geworden. Nur
+  # explizit "sda" (unsere eigene qcow2-Systemplatte) loeschen lassen.
+  read -p "VM '$VM_NAME' loeschen (nur die VM-eigene Festplatte 'sda', ISO bleibt unangetastet)? [j/N] " confirm
   if [[ "$confirm" == "j" || "$confirm" == "J" ]]; then
     virsh destroy "$VM_NAME" 2>/dev/null || true
-    virsh undefine "$VM_NAME" --remove-all-storage
+    virsh undefine "$VM_NAME" --storage sda --nvram
   fi
 }
 
