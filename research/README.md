@@ -1,4 +1,4 @@
-# Windows-VM-Test: letzter offener Punkt der Fan-Speed-Untersuchung
+# Windows-VM-Test: letzter offener Punkt der Fan-Speed-Untersuchung (ABGESCHLOSSEN)
 
 Hintergrund: [`protocol.py`](../src/llano_v12ultra_ctrl/protocol.py) NACHTRAG 6. Die
 Original-Software hat nachweislich echten Code (`GPP_USB_Center.exe`, Klasse `LJN_LAP_FAN`), der
@@ -6,7 +6,20 @@ Original-Software hat nachweislich echten Code (`GPP_USB_Center.exe`, Klasse `LJ
 das auf der eigenen Hardware tatsächlich wirkt, konnte weder durch eigene Byte-Level-Tests noch
 durch einen Wine-Live-Test geklärt werden (die App erkennt das Gerät unter Wine gar nicht).
 
-**Einziger verbleibender schlüssiger Test: echtes Windows.**
+**Ergebnis (siehe [`protocol.py`](../src/llano_v12ultra_ctrl/protocol.py) NACHTRAG 7 für alle
+Details):** Test mit echtem Windows 11 in einer VM mit USB-Passthrough durchgeführt. Die App
+erkannte das Gerät und zeigte die volle RPM-Mode-UI. In 193 echten HID-Feature-Report-Aufrufen
+während der Bedienung wurde nie ein neuer, gezielter fan_speed-Wert geschrieben - nur Telemetrie-
+Echos. Der Lesepfad funktioniert nachweislich (Rad drehen springt die UI auf "Manual Mode"
+zurück), der Schreibpfad wurde auch unter echtem Windows nie beobachtet. Ein geplanter
+CPU-Stresstest zur Provokation eines Schreibversuchs über "AI Mode" wurde verworfen, weil die
+Hardware-Sensor-Anzeige der App in der VM eingefroren ist (kein Sensor-Passthrough unter
+QEMU/KVM) - die Fan-Curve-Logik kann daher in einer VM grundsätzlich nie eine Temperaturänderung
+sehen, unabhängig von echter CPU-Last. Ein wirklich abschließender Test bräuchte eine physische
+Windows-Maschine mit echten Sensoren.
+
+Die folgenden Schritte dokumentieren den durchgeführten Testablauf (für Reproduktion oder falls
+das Thema mit einer echten Maschine erneut aufgegriffen wird).
 
 ## Ablauf
 

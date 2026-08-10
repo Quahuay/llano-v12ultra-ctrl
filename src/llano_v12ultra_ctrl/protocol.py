@@ -376,6 +376,65 @@ werden. **Der einzige verbleibende schlüssige Test ist echtes Windows**
 Geräteerkennung voraussichtlich funktioniert und der tatsächliche
 USB-Traffic beim Klicken von "AI Low/Medium/High Mode" beobachtet werden
 könnte.
+
+NACHTRAG 7 (echter Windows-11-VM-Live-Test, 2026-08-10): Windows 11 unter
+QEMU/KVM (libvirt, UEFI+TPM2.0, USB-Host-Passthrough des Pads) installiert,
+echte `MythCool`-App darin installiert und bedient, USB-Traffic per
+usbmon/tshark auf dem Host live mitgeschnitten (siehe `research/`).
+Anders als unter Wine wurde das Gerät in der VM erkannt, die App zeigte die
+volle RPM-Mode-UI und ließ alle Modi anklicken.
+
+Ergebnis der Aufzeichnung (193 echte HID-Feature-Report-Aufrufe an das
+Gerät, `research/analyze_capture.py`): Byte 1 (fan_speed-Position) war in
+191 der 193 Aufrufe exakt 0x00. In den übrigen 2 Aufrufen stand dort 0x14
+(20) - das sah zunächst nach einem echten Schreibversuch aus, ließ sich
+aber durch direkten Hex-Vergleich mit der unmittelbar vorausgehenden
+GET_REPORT-Antwort widerlegen: der Wert 0x14 stand bereits in der
+*gelesenen* Telemetrie, bevor die App ihn zurückschrieb. Es handelt sich um
+ein Echo (die App liest den aktuellen Radstand und schreibt ihn beim
+nächsten Report unverändert zurück, z.B. weil Farbe/Power in diesem Moment
+geändert wurden - der Nutzer bestätigte, zu diesem Zeitpunkt die Farbe
+umgestellt und das Gerät neu gestartet zu haben, nicht einen RPM-Modus
+angeklickt). Kein einziger der 193 Aufrufe enthielt einen *neuen*,
+gezielten fan_speed-Wert. Output-Report-Traffic (Interrupt-OUT) blieb wie
+in allen bisherigen Aufzeichnungen bei 0.
+
+Zusätzliche, vom Nutzer während der Bedienung selbst beobachtete Evidenz:
+dreht man am physischen Rad, während in der App ein AI-/Custom-Modus
+ausgewählt ist, springt die UI automatisch auf "Manual Mode" zurück. Das
+bestätigt unabhängig, dass die App Byte 1 aktiv als Live-Telemetrie liest
+und auswertet (nicht nur beim Start abfragt) - der *Lesepfad* funktioniert
+also nachweislich und wird von der echten Software genutzt.
+
+Ein geplanter Folgetest (CPU-Stresstest in der VM, um der Fan-Curve-Logik
+über "AI Mode" eine Temperaturänderung vorzugaukeln und so einen echten
+Schreibversuch zu provozieren) wurde nicht ausgewertet: der Nutzer stellte
+fest, dass die Hardware-Status-Anzeige der App in der VM eingefroren war
+(kein dynamisches Sensor-Passthrough unter QEMU/KVM) - die Fan-Curve-Logik
+bekommt in einer VM also unabhängig von echter CPU-Auslastung nie eine sich
+ändernde Temperatur zu sehen, ein Stresstest kann daher keinen Schreib-
+versuch auslösen, egal wie stark die virtuelle CPU ausgelastet wird. Das
+ist eine grundsätzliche Grenze von VM-basiertem Testen für dieses Feature,
+keine Eigenschaft des Geräts oder Protokolls.
+
+**Finales Fazit:** Über drei unabhängige Testebenen (eigene Byte-Level-
+Tests am realen Gerät, Wine-Live-Test, echter Windows-11-Live-Test mit
+funktionierender Geräteerkennung) wurde nie ein einziger SET_REPORT mit
+einem neuen, gezielten fan_speed-Wert beobachtet - weder von unserem
+eigenen Code noch von der Original-App. Der Original-App-Code (`LJN_LAP_FAN`,
+siehe NACHTRAG 6) parst `fan_speed` zwar nachweislich aus dem JSON, aber ob
+dieser Wert auf diesem konkreten Geräte-Modell tatsächlich in einen
+USB-Schreibbefehl umgesetzt wird, konnte im Beobachtungszeitraum nie erhärtet
+werden - vermutlich weil `GPP_USB_Center.exe` eine geteilte Multi-Geräte-
+Bibliothek ist und dieses Board keinen PWM-Aktuator besitzt, den der
+Handler ansteuern könnte (das würde auch erklären, warum das Lüfterrad rein
+mechanisch/passiv per Hand drehbar ist statt motorisiert). Ein wirklich
+abschließender Test bräuchte eine echte physische Windows-Maschine mit
+funktionierenden Sensoren, um "AI Mode" unter echter Temperaturänderung zu
+beobachten - das war im Rahmen dieser Untersuchung nicht mehr sinnvoll
+umsetzbar. `set_fan_speed()` bleibt aus Kompatibilitätsgründen im Code,
+ist aber sowohl in der CLI-Hilfe als auch in der GUI klar als "ohne
+nachgewiesene Wirkung auf dieser Hardware" gekennzeichnet.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum
