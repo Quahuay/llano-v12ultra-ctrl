@@ -485,6 +485,38 @@ Windows, Wirkung bestätigt sowohl unter Windows als auch nativ unter Linux
 über HIDIOCSFEATURE). Die frühere "nachweislich wirkungslos"-Einschätzung
 (NACHTRAG 1-7) war korrekt für das getestete (falsche) Kommando, aber falsch
 als Aussage über die Hardware selbst.
+
+NACHTRAG 9 (Auflösung und Wertebereich ausgelotet, 2026-08-10): Zwei
+Nachfolgetests direkt im Anschluss.
+
+1. **Feinste nutzbare Auflösung**: alle 100 einzelnen raw-Werte (1-100)
+   nacheinander gesetzt (nicht nur die 26 auf 100er-U/min-Stufen gerundeten
+   Werte aus dem ersten Test) - der Nutzer bestätigte, dass sich die
+   Drehzahl bei jedem einzelnen raw-Schritt tatsächlich änderte, in
+   ca. 25 U/min-Schritten (2500 U/min Spanne / 99 Schritte ≈ 25,25). Das ist
+   die real feinste ansteuerbare Auflösung - `raw` ist ein einzelnes Byte,
+   es gibt keine feinere Zwischenstufe. Die zuvor dokumentierten "26 Stufen à
+   100 U/min" waren nur eine Vereinfachung für die grobe RPM-Umrechnung,
+   real reagiert die Hardware auf jeden einzelnen raw-Wert.
+
+2. **Wertebereich über die dokumentierten 1-100 hinaus**: raw=0 sowie
+   101/110/128/150/200/255 testweise gesetzt. Das Gerät nimmt jeden Wert bis
+   255 anstandslos an und spiegelt ihn im Report unverändert zurück (auch im
+   Pad-Display, das bei raw=255 einen extrapolierten Wert von ca. 6675 U/min
+   anzeigte - `fan_rpm`-Formel in `Report` ist nur für 1-100 kalibriert,
+   Werte darüber sind reine Extrapolation, keine echte Messung). Die
+   **tatsächliche** Lüfterdrehzahl blieb laut Nutzer ab raw≈100 konstant auf
+   dem echten Maximum (2800 U/min) stehen - Werte darüber ändern nur die
+   Telemetrie/Anzeige, nicht die reale Drehzahl. `set_fan_speed()` bleibt
+   deshalb bei der validierten Grenze 1-100 (siehe device.py), auch wenn das
+   Feld selbst technisch bis 255 reicht.
+
+Kurze Nebenfrage des Nutzers: ob sich durch schnelles/gezieltes Ansteuern
+auch der Anzeigeinhalt selbst (nicht nur die Zahl) manipulieren ließe.
+Unwahrscheinlich mit aktuellem Kenntnisstand - es gibt kein bekanntes
+separates "Display-Inhalt setzen"-Kommando, die Anzeige scheint eine reine
+Firmware-Berechnung aus dem einen raw-Byte zu sein. Nicht weiter verfolgt,
+kein Beleg in irgendeiner Capture bisher.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum
@@ -608,9 +640,12 @@ class Report:
 
     @property
     def fan_rpm(self):
-        """300-2800 U/min in 100er-Schritten (26 Stufen), raw-Bereich 1-100.
-        Gegen die eigene Pad-Anzeige verifiziert (raw=1->300, raw=48->1500,
-        raw=100->2800, alle 3 exakt getroffen)."""
+        """Grob auf 100er-Schritte gerundete U/min-Anzeige (300-2800), raw-Bereich
+        1-100. Gegen die eigene Pad-Anzeige verifiziert (raw=1->300, raw=48->1500,
+        raw=100->2800, alle 3 exakt getroffen). ACHTUNG: das ist nur eine grobe
+        Rundung für die Anzeige - die tatsächliche Hardware reagiert auf jeden
+        einzelnen raw-Wert mit ca. 25 U/min Schritt (siehe protocol.py NACHTRAG 9,
+        Feinstufen-Test über alle 100 raw-Werte)."""
         level = round((self.fan_speed_raw - 1) * 25 / 99)
         return 300 + level * 100
 

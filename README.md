@@ -37,9 +37,10 @@ der Original-App und durch systematische Live-Tests am physischen Gerät - inklu
   Lüfterdrehzahl** setzen, Gerät komplett ein-/ausschalten, Live-Telemetrie beobachten
 - **GUI** (`llano-v12ultra-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive Live-Status-Anzeige,
   Fan-Speed-Regler und Steuerung des Automatik-Dienstes
-- **Echte Lüfterdrehzahl-Steuerung** (26 Stufen, 300-2800 U/min): per Live-USB-Capture gegen die
-  echte Hersteller-App gefunden (siehe [Hardware-Hintergrund](#hardware-hintergrund)) und live auf
-  echter Hardware verifiziert - kein physisches Rad-Drehen mehr nötig
+- **Echte Lüfterdrehzahl-Steuerung** (100 Stufen, ~25 U/min pro Schritt, 300-2800 U/min
+  Gesamtbereich): per Live-USB-Capture gegen die echte Hersteller-App gefunden (siehe
+  [Hardware-Hintergrund](#hardware-hintergrund)) und live auf echter Hardware verifiziert - jeder
+  einzelne der 100 Rohwerte einzeln durchgetestet, kein physisches Rad-Drehen mehr nötig
 - **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
   (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
 - **RPM-Verlauf** in der GUI (kleine Live-Sparkline der letzten ~2 Minuten Lüfterdrehzahl)
@@ -56,14 +57,17 @@ der Original-App und durch systematische Live-Tests am physischen Gerät - inklu
 
 ## Hardware-Hintergrund
 
-Die Lüfterdrehzahl **ist** per Software steuerbar (26 Stufen, 300-2800 U/min in 100er-Schritten) -
+Die Lüfterdrehzahl **ist** per Software steuerbar (raw-Bereich 1-100, jeder einzelne Wert bewirkt
+eine eigene, spürbare Drehzahländerung von ca. 25 U/min - macht in Summe 300-2800 U/min) -
 allerdings über ein eigenständiges HID-Feature-Report-Kommando, komplett getrennt vom
 Licht-Kommando. Monatelange Tests, die stattdessen ein Byte im Licht-Kommando manipulierten, waren
 deshalb wirkungslos (historisch dokumentiert in [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)
 NACHTRAG 1-7) - der eigentliche Fan-Befehl wurde erst per Live-USB-Capture gegen die echte
 Hersteller-App auf echter Windows-Hardware gefunden und anschließend sowohl unter Windows als auch
-nativ hier unter Linux live bestätigt (NACHTRAG 8). Das physische Rad am Pad funktioniert weiterhin
-parallel als manuelle Override-Möglichkeit.
+nativ hier unter Linux live bestätigt (NACHTRAG 8), inklusive eines Feinstufen-Tests aller 100
+Einzelwerte (NACHTRAG 9). Werte über 100 nimmt das Gerät zwar noch an (bis 255), die echte Drehzahl
+bleibt ab da aber auf dem Maximum stehen - nur die Anzeige rechnet ohne Begrenzung weiter. Das
+physische Rad am Pad funktioniert weiterhin parallel als manuelle Override-Möglichkeit.
 
 Ebenfalls software-steuerbar: RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit,
 Helligkeit, sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht).
@@ -137,10 +141,11 @@ llano-v12ultra-ctrl fan-speed 50                                   # Lüfterdreh
 llano-v12ultra-ctrl-gui                                           # grafische Oberfläche starten
 ```
 
-`fan-speed` setzt die Lüfterdrehzahl über ein eigenes HID-Kommando (Wertebereich `1`-`100`, linear
-auf 300-2800 U/min in 26 Stufen abgebildet: `raw=1` → 300 U/min, `raw=100` → 2800 U/min). Live
-verifiziert über den gesamten Bereich (siehe [Hardware-Hintergrund](#hardware-hintergrund)). Auch in
-der GUI als eigener Fan-Speed-Regler verfügbar.
+`fan-speed` setzt die Lüfterdrehzahl über ein eigenes HID-Kommando (Wertebereich `1`-`100`, jeder
+Wert eine eigene Stufe von ca. 25 U/min: `raw=1` → 300 U/min, `raw=100` → 2800 U/min). Live
+verifiziert, jeder einzelne der 100 Werte einzeln getestet (siehe
+[Hardware-Hintergrund](#hardware-hintergrund)). Auch in der GUI als eigener Fan-Speed-Regler
+verfügbar.
 
 | Option | Werte |
 |---|---|
