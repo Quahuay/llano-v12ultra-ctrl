@@ -31,7 +31,7 @@ set -euo pipefail
 VM_NAME="mythcool-win-test"
 VID="0x374a"
 PID="0xb101"
-DISK_SIZE_GB=40
+DISK_SIZE_GB=80
 RAM_MB=6144
 VCPUS=2
 
