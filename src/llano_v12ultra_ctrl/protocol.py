@@ -321,6 +321,16 @@ diesem physischen Gerät nicht" bleibt nach dieser zusätzlichen
 Untersuchungsrunde unverändert bestehen - jetzt zusätzlich gestützt durch
 die Erkenntnis, dass selbst die eigene App diesen Pfad in der
 aufgezeichneten Nutzung praktisch nie mit einem echten Wert befüllt.
+
+NACHTRAG 5 (finale Live-Bestätigung, 2026-08-10): `set_fan_speed()` mit
+fünf über den gesamten Wertebereich verteilten Werten (1, 25, 50, 75, 100)
+einzeln getestet, mit Nutzer-Beobachtung nach jedem Wert. Byte 1 im
+zurückgelesenen Report blieb bei jedem der fünf Werte exakt identisch
+(unverändert der reale Telemetriewert), keine Reaktion am Display oder
+Lüfter. Damit ist die Schlussfolgerung "Lüfterdrehzahl per Software setzen
+funktioniert auf diesem Gerät nicht" nun auch durch eine frische,
+gezielte Live-Kontrolle bestätigt - die Untersuchung gilt als
+abgeschlossen.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum
