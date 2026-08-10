@@ -33,10 +33,14 @@ from llano_v12ultra_ctrl import __version__  # noqa: E402
 HIDAPI_DLL = Path(__file__).parent / "hidapi.dll"
 ICON = REPO_ROOT / "packaging" / "icons" / "llano-v12ultra-ctrl.ico"
 
+if not HIDAPI_DLL.exists():
+    print(f"WARNING: {HIDAPI_DLL} not found - MSI will NOT have USB HID support.", file=sys.stderr)
+
 build_exe_options = {
     "packages": ["llano_v12ultra_ctrl"],
     "include_files": [(str(HIDAPI_DLL), "hidapi.dll")] if HIDAPI_DLL.exists() else [],
     "excludes": ["tkinter", "unittest"],
+    "include_msvcr": True,
 }
 
 bdist_msi_options = {

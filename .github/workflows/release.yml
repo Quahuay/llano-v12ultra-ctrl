@@ -1,15 +1,5 @@
 name: Release artifacts
 
-# Baut alle vier Installer-Formate (siehe packaging/) und hängt sie an ein
-# GitHub Release an. Läuft auf CI-Runnern statt lokal, weil die Dev-Umgebung
-# in dieser Session weder fpm/ruby noch makepkg/Arch noch linuxdeploy/FUSE
-# noch ein zweites Python für den MSI-Build hatte - siehe die "NICHT auf der
-# Dev-Maschine getestet"-Kommentare in den einzelnen packaging/*-Skripten.
-#
-# Voraussetzung zum Pushen dieser Datei: das gh-Token braucht den
-# `workflow`-Scope (`gh auth refresh -h github.com -s workflow`) - ohne den
-# lehnt GitHub den Push von .github/workflows/-Dateien über HTTPS ab.
-
 on:
   push:
     tags:
@@ -21,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - name: Install fpm
         run: |
           sudo apt-get update
@@ -40,9 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - name: Install FUSE (needed to run appimagetool)
         run: sudo apt-get update && sudo apt-get install -y libfuse2
       - name: Build AppImage
@@ -64,21 +48,16 @@ jobs:
           chown -R builder:builder "$GITHUB_WORKSPACE"
       - name: Build package
         run: |
-          cp packaging/PKGBUILD .
-          chown builder:builder PKGBUILD
-          su builder -c "makepkg --noconfirm --skipchecksums"
+          mkdir -p build && cp packaging/PKGBUILD build/
+          chown -R builder:builder build
+          su builder -c "cd build && makepkg --noconfirm --skipchecksums"
+          mv build/*.pkg.tar.zst .
       - uses: actions/upload-artifact@v4
         with:
           name: arch-package
           path: "*.pkg.tar.zst"
 
   msi:
-    # Python 3.12 (nicht der 3.14 des lokalen Windows-Testsystems): 3.12
-    # hat msilib noch in der Standardbibliothek, cx_Freezes bdist_msi
-    # braucht das - ab 3.13 wäre zusätzlich das python-msilib-Backport-Paket
-    # nötig, siehe packaging/msi/cx_freeze_setup.py. Der gebaute Installer
-    # selbst bringt sein eigenes gebündeltes Python mit, betrifft also nur
-    # den Build-Schritt hier, nicht was der Endnutzer installiert bekommt.
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +69,7 @@ jobs:
       - name: Download hidapi.dll
         shell: bash
         run: |
-          curl -sL -o hidapi-win.zip https://github.com/libusb/hidapi/releases/latest/download/hidapi-win.zip
+          curl -fsSL -o hidapi-win.zip https://github.com/libusb/hidapi/releases/latest/download/hidapi-win.zip
           unzip -o hidapi-win.zip x64/hidapi.dll -d hidapi-extracted
           cp hidapi-extracted/x64/hidapi.dll packaging/msi/hidapi.dll
       - name: Build MSI
@@ -102,6 +81,7 @@ jobs:
 
   release:
     needs: [deb, appimage, arch, msi]
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write

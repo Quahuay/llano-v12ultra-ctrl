@@ -23,6 +23,8 @@ PYLIB="$STAGE/usr/lib/python3/dist-packages"
 mkdir -p "$PYLIB" "$STAGE/usr/bin" "$STAGE/usr/lib/udev/rules.d" "$STAGE/usr/lib/systemd/user"
 
 cp -r "$REPO_ROOT/src/llano_v12ultra_ctrl" "$PYLIB/"
+find "$PYLIB/llano_v12ultra_ctrl" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$PYLIB/llano_v12ultra_ctrl" -name '*.pyc' -delete 2>/dev/null || true
 cp "$REPO_ROOT/packaging/70-llano-v12ultra-ctrl.rules" "$STAGE/usr/lib/udev/rules.d/"
 cp "$REPO_ROOT/systemd/llano-v12ultra-ctrl.service" "$STAGE/usr/lib/systemd/user/"
 
@@ -55,7 +57,7 @@ fpm -s dir -t deb \
     --architecture all \
     --depends python3 \
     --depends python3-pyqt6 \
-    --deb-recommends python3-plyer \
+    --depends python3-plyer \
     --after-install "$REPO_ROOT/packaging/deb/postinst.sh" \
     usr=/
 

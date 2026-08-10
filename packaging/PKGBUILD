@@ -1,10 +1,8 @@
 # Maintainer: Quahuay
 #
-# NICHT auf der Dev-Maschine gebaut/getestet (kein Arch/makepkg dort
-# verfügbar, siehe Session-Notizen) - Build+Test läuft über einen
-# `archlinux`-Docker-Container in der GitHub-Actions-Pipeline, siehe
-# .github/workflows/release.yml. Vor der AUR-Einreichung lokal auf einer
-# echten Arch-Maschine mit `makepkg -si` gegenprüfen.
+# Lokal bauen: in diesem Verzeichnis `makepkg -si` ausführen.
+# Ohne Arch-Maschine: Docker-Container (siehe packaging/AUR.md).
+# CI (release.yml): `makepkg --noconfirm --skipchecksums` im Container.
 #
 # .SRCINFO für AUR-Einreichung generieren mit:
 #   makepkg --printsrcinfo > .SRCINFO
