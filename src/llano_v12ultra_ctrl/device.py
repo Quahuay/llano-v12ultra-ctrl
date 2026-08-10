@@ -125,10 +125,10 @@ class _LinuxDevice:
         wirkungslos - erschöpfend getestet (gezielte Hypothesen, vollständiger
         64x256-Fuzz, Pcap-Analyse der Original-App, Analyse von MythCool.exe).
         Trotzdem als forward-kompatible Methode vorbereitet, falls eine andere
-        Firmware-Revision dieses Feld doch auswertet. **Nicht live gegen
-        Hardware getestet in der Session, in der diese Methode geschrieben
-        wurde** (autonome Phase ohne Geräte-Zugriff, siehe Git-Historie) -
-        vor Verwendung einmal gegentesten."""
+        Firmware-Revision dieses Feld doch auswertet. Live getestet
+        (2026-08-10): Schreiben funktioniert technisch fehlerfrei, Byte 1
+        bleibt danach unverändert der echte Telemetriewert - bestätigt
+        wirkungslos auf diesem Gerät, keine Nebenwirkungen."""
         if not 1 <= raw <= 100:
             raise ValueError("raw muss zwischen 1 und 100 liegen (siehe protocol.py fan_speed_raw-Bereich)")
         current = self.get_report()
