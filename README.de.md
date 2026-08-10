@@ -8,15 +8,16 @@
 
 > **Primär für Linux entwickelt und gepflegt.** Die eigentliche Geräteansteuerung (`status`/
 > `light`/`fan-speed`) ist live gegen echte Hardware unter Windows getestet und funktioniert (siehe
-> [Windows-Status](#windows-status)) - Temperatursensor-Erkennung und Hintergrunddienst-Steuerung
+> [Windows-Status](#windows-status)). Temperatursensor-Erkennung und Hintergrunddienst-Steuerung
 > sind unter Windows dagegen bisher nur code-seitig vorbereitet, nicht praktisch verifiziert.
 
 Natives Linux-Steuerungstool für das **llano V12 Ultra** RGB-Laptop-Kühlpad (Holtek USB-HID
 `374a:b101`), dessen offizielle Windows-Software **Myth.Cool** ist. Statt die Windows-App unter
 Wine laufen zu lassen (kaputte UI-Texte, nicht funktionierendes Sensor-Dashboard), spricht
-`llano-v12ultra-ctrl` das Gerät direkt über `/dev/hidraw*` an, reverse-engineered aus echtem USB-Traffic
-der Original-App und durch systematische Live-Tests am physischen Gerät - inklusive einer
-**echten, per Live-USB-Capture gefundenen Lüfterdrehzahl-Steuerung** (siehe unten).
+`llano-v12ultra-ctrl` das Gerät direkt über `/dev/hidraw*` an. Das Protokoll wurde aus echtem
+USB-Traffic der Original-App und durch systematische Live-Tests am physischen Gerät
+reverse-engineered, inklusive einer **echten, per Live-USB-Capture gefundenen
+Lüfterdrehzahl-Steuerung** (siehe unten).
 
 ### Hinweis zu Markennamen
 
@@ -24,9 +25,9 @@ Dieses Projekt steht in keiner Verbindung zu, wird nicht unterstützt von und is
 durch den Hersteller/Vertreiber der Marke **llano** oder der Software **Myth.Cool**. Es handelt
 sich um ein unabhängiges, privates Open-Source-Projekt eines einzelnen Nutzers dieser Hardware.
 Der Markenname wird ausschließlich beschreibend genannt, um klarzustellen, für welches Gerät
-dieses Tool gedacht ist (nominative Nennung zur Wiedererkennbarkeit) - nicht um eine
-Zugehörigkeit, Empfehlung oder Zusammenarbeit zu suggerieren. Alle Rechte an den genannten
-Markennamen liegen bei ihren jeweiligen Inhabern.
+dieses Tool gedacht ist (nominative Nennung zur Wiedererkennbarkeit), nicht um eine Zugehörigkeit,
+Empfehlung oder Zusammenarbeit zu suggerieren. Alle Rechte an den genannten Markennamen liegen bei
+ihren jeweiligen Inhabern.
 
 ## Inhaltsverzeichnis
 
@@ -51,26 +52,26 @@ Markennamen liegen bei ihren jeweiligen Inhabern.
 - **GUI** (`llano-v12ultra-ctrl-gui`, PyQt6): dieselben Funktionen grafisch, inklusive kompakter
   Status-Tabelle, separatem RPM-Verlauf, Fan-Speed-Regler, Steuerung des Automatik-Dienstes und bis
   zu fünf speicherbaren Profilen (Licht + Lüfterdrehzahl, ein Klick zum Anwenden)
-- **Echte Lüfterdrehzahl-Steuerung** (100 Stufen, ~25 U/min pro Schritt, 300-2800 U/min
+- **Echte Lüfterdrehzahl-Steuerung** (100 Stufen, ca. 25 U/min pro Schritt, 300 bis 2800 U/min
   Gesamtbereich): per Live-USB-Capture gegen die echte Hersteller-App gefunden (siehe
-  [Hardware-Hintergrund](#hardware-hintergrund)) und live auf echter Hardware verifiziert - jeder
-  einzelne der 100 Rohwerte einzeln durchgetestet, kein physisches Rad-Drehen mehr nötig
+  [Hardware-Hintergrund](#hardware-hintergrund)) und live auf echter Hardware verifiziert. Jeder
+  einzelne der 100 Rohwerte wurde einzeln durchgetestet, kein physisches Rad-Drehen mehr nötig.
 - **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
   (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
 - **Lüfterkurve** (opt-in): bildet die CPU-Temperatur per linearer Interpolation zwischen frei
-  konfigurierbaren Punkten auf eine Lüfterdrehzahl ab - in der GUI als interaktive Grafik (Punkte
-  ziehen/hinzufügen/entfernen), Zahlenwerte optional über "Erweiterte Einstellungen", siehe
-  [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung)
-- **RPM-Verlauf** in der GUI (kleine Live-Sparkline der letzten ~2 Minuten Lüfterdrehzahl)
+  konfigurierbaren Punkten auf eine Lüfterdrehzahl ab. In der GUI als interaktive Grafik verfügbar
+  (Punkte ziehen/hinzufügen/entfernen), Zahlenwerte optional über "Erweiterte Einstellungen". Siehe
+  [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung).
+- **RPM-Verlauf** in der GUI (kleine Live-Sparkline der letzten ca. 2 Minuten Lüfterdrehzahl)
 - **Lüfter-Erinnerung**: Desktop-Benachrichtigung, wenn die CPU heiß ist, aber die gemessene
-  Drehzahl niedrig bleibt - Übergangslösung, falls die Lüfterkurve (noch) nicht aktiviert ist
+  Drehzahl niedrig bleibt. Übergangslösung, falls die Lüfterkurve noch nicht aktiviert ist.
 - **CSV-Verlaufsprotokoll** (Temperatur/RPM/Farbe über Zeit), opt-in, für spätere Auswertung
 - **Kritisch-heiß-Alarm**: hohe Temperatur-Schwellen können statt nur einer anderen Farbe auch
   einen auffälligeren Effekt setzen (z.B. `chase`/Lauflicht)
 - **Leiser Update-Check** (abschaltbar): einmal alle 24h eine Prüfung gegen die GitHub-Releases-API
-  im Hintergrund - niemals ein stiller Self-Updater, nur ein Hinweis + Link (oder ein Hinweis
-  "Update über den Paketmanager", falls per `.deb`/Arch installiert), siehe `[general]
-  update_check` in [`config/config.example.toml`](config/config.example.toml)
+  im Hintergrund. Niemals ein stiller Self-Updater, nur ein Hinweis plus Link (oder ein Hinweis
+  "Update über den Paketmanager", falls per `.deb`/Arch installiert). Siehe `[general]
+  update_check` in [`config/config.example.toml`](config/config.example.toml).
 - Keine externen HID-Bibliotheken nötig: direkte `HIDIOCGFEATURE`/`HIDIOCSFEATURE`-ioctls auf
   `/dev/hidraw*`
 - Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)),
@@ -78,12 +79,12 @@ Markennamen liegen bei ihren jeweiligen Inhabern.
 
 ## Hardware-Hintergrund
 
-Software-steuerbar sind: Lüfterdrehzahl (raw-Bereich 1-100, ca. 25 U/min pro Schritt, insgesamt
-300-2800 U/min), RGB-Farbe (5 Farben), Lichteffekt (5 Modi), Effekt-Geschwindigkeit, Helligkeit,
-sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit (Lüfter + Licht). Werte über 100 nimmt
-das Gerät zwar noch an, die echte Drehzahl bleibt ab dem Maximum aber stehen - nur die Anzeige
-rechnet ohne Begrenzung weiter. Das physische Rad am Pad funktioniert weiterhin parallel als
-manuelle Override-Möglichkeit.
+Software-steuerbar sind: Lüfterdrehzahl (raw-Bereich 1 bis 100, ca. 25 U/min pro Schritt,
+insgesamt 300 bis 2800 U/min), RGB-Farbe (5 Farben), Lichteffekt (5 Modi),
+Effekt-Geschwindigkeit, Helligkeit, sowie ein reiner Ein/Aus-Kill-Switch für die gesamte Einheit
+(Lüfter + Licht). Werte über 100 nimmt das Gerät zwar noch an, die echte Drehzahl bleibt ab dem
+Maximum aber stehen; nur die Anzeige rechnet ohne Begrenzung weiter. Das physische Rad am Pad
+funktioniert weiterhin parallel als manuelle Override-Möglichkeit.
 
 Lüfterdrehzahl und Licht sind zwei komplett getrennte HID-Kommandos (siehe
 [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) für das vollständige Byte-Layout). Wie das
@@ -91,27 +92,27 @@ Fan-Kommando gefunden wurde, inklusive aller Sackgassen unterwegs, steht in
 [HISTORY.md](HISTORY.md).
 
 Der Automatikmodus (siehe unten) kann optional auch die Lüfterdrehzahl temperaturbasiert regeln
-(Lüfterkurve, standardmäßig deaktiviert) - siehe
+(Lüfterkurve, standardmäßig deaktiviert). Siehe
 [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung).
 
 ## Installation
 
-⚠️ Native Installer sind neu (siehe [Paket-Status](#paket-status) für den genauen
-Verifikationsstand) - Pakete/Binärdateien hängen an einem
+HINWEIS: native Installer sind neu. Siehe [Paket-Status](#paket-status) für den genauen
+Verifikationsstand. Pakete und Binärdateien hängen an einem
 [GitHub Release](https://github.com/Quahuay/llano-v12ultra-ctrl/releases), sobald eine Version
 getaggt ist. Passenden Weg für die eigene Plattform wählen:
 
 | Plattform | Wie |
 |---|---|
-| Windows | `.msi` von [Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) herunterladen und ausführen - bringt eigenes Python, PyQt6 und `hidapi.dll` mit, keine separate Python-Installation nötig |
+| Windows | `.msi` von [Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) herunterladen und ausführen. Bringt eigenes Python, PyQt6 und `hidapi.dll` mit, keine separate Python-Installation nötig. |
 | Debian/Ubuntu (apt-basiert) | `.deb` von Releases herunterladen, dann `sudo apt install ./llano-v12ultra-ctrl_*.deb` |
-| Arch-basiert | `PKGBUILD` in [`packaging/PKGBUILD`](packaging/PKGBUILD), zur AUR eingereicht als `llano-v12ultra-ctrl` (`yay -S llano-v12ultra-ctrl` sobald veröffentlicht) - oder selbst bauen mit `makepkg -si` |
-| Andere Linux-Distros | `.AppImage` von Releases herunterladen, `chmod +x`, direkt ausführen - keine Installation nötig. Startet standardmäßig die GUI; mit einem CLI-Unterbefehl (z.B. `./llano-v12ultra-ctrl-*.AppImage status`) stattdessen die CLI |
+| Arch-basiert | Selbst bauen aus [`packaging/PKGBUILD`](packaging/PKGBUILD), siehe [`packaging/AUR.md`](packaging/AUR.md). Ein AUR-Paket ist geplant, aber noch nicht veröffentlicht (Status: TBD). |
+| Andere Linux-Distros | `.AppImage` von Releases herunterladen, `chmod +x`, direkt ausführen. Keine Installation nötig. Startet standardmäßig die GUI; mit einem CLI-Unterbefehl (z.B. `./llano-v12ultra-ctrl-*.AppImage status`) stattdessen die CLI. |
 
-`.deb`/Arch-Pakete brauchen trotzdem noch den udev-Regel-Schritt unten (bei `.deb` automatisch per
-Postinstall-Hook erledigt; bei Arch pickt udev die Regel beim nächsten Geräte-Event selbst auf).
-AppImage/MSI brauchen den Schritt ebenfalls, da sie ohne Root-Rechte laufen und ihn nicht selbst
-einrichten können.
+`.deb`- und Arch-Pakete brauchen trotzdem noch den udev-Regel-Schritt unten. Bei `.deb` erledigt
+das ein Postinstall-Hook automatisch, bei Arch pickt udev die Regel beim nächsten Geräte-Event
+selbst auf. AppImage und MSI brauchen den Schritt ebenfalls, da sie ohne Root-Rechte laufen und ihn
+nicht selbst einrichten können.
 
 ### Aus dem Quellcode installieren (pip/pipx)
 
@@ -188,9 +189,9 @@ llano-v12ultra-ctrl fan-speed 50                                   # Lüfterdreh
 llano-v12ultra-ctrl-gui                                           # grafische Oberfläche starten
 ```
 
-`fan-speed` setzt die Lüfterdrehzahl über ein eigenes HID-Kommando (Wertebereich `1`-`100`, jeder
-Wert eine eigene Stufe von ca. 25 U/min: `raw=1` → 300 U/min, `raw=100` → 2800 U/min). Live
-verifiziert, jeder einzelne der 100 Werte einzeln getestet (siehe
+`fan-speed` setzt die Lüfterdrehzahl über ein eigenes HID-Kommando (Wertebereich `1` bis `100`,
+jeder Wert eine eigene Stufe von ca. 25 U/min: `raw=1` ergibt 300 U/min, `raw=100` ergibt 2800
+U/min). Live verifiziert, jeder einzelne der 100 Werte einzeln getestet (siehe
 [Hardware-Hintergrund](#hardware-hintergrund)). Auch in der GUI als eigener Fan-Speed-Regler
 verfügbar.
 
@@ -210,9 +211,10 @@ cp config/config.example.toml ~/.config/llano-v12ultra-ctrl/config.toml   # anpa
 llano-v12ultra-ctrl auto
 ```
 
-Schaltet die Pad-Farbe je nach CPU-Temperatur um (grün → orange → rot), mit optionalem
-GPU-Temperatur-Alarm (lila/breathing), siehe Kommentare in
-[`config/config.example.toml`](config/config.example.toml). Für Dauerbetrieb als systemd-User-Service:
+Schaltet die Pad-Farbe je nach CPU-Temperatur um (grün, dann orange, dann rot), mit optionalem
+GPU-Temperatur-Alarm (lila/breathing). Siehe Kommentare in
+[`config/config.example.toml`](config/config.example.toml). Für Dauerbetrieb als
+systemd-User-Service:
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -226,84 +228,87 @@ pausieren/fortsetzen (`systemctl --user stop/start`). Der Dienst bleibt dabei `e
 nach dem nächsten Login/Neustart normal weiter.
 
 Unter Windows registriert die GUI beim ersten "Fortsetzen"-Klick automatisch eine geplante Aufgabe
-(`schtasks`, Trigger "bei Anmeldung", kein Admin nötig) statt eines echten Windows-Diensts - siehe
+(`schtasks`, Trigger "bei Anmeldung", kein Admin nötig) statt eines echten Windows-Diensts. Siehe
 [Windows-Status](#windows-status). **Voraussetzung für die Temperaturerkennung:**
 [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) muss laufen
-und dessen WMI-Export aktiviert sein - ohne das bricht `auto` sofort mit "Kein
+und dessen WMI-Export aktiviert sein. Ohne das bricht `auto` sofort mit "Kein
 CPU-Temperatursensor gefunden" ab (live bestätigt).
 
 ## Lüfterkurve & Lüfter-Erinnerung
 
 Alle drei Optionen leben im `auto`-Modus (siehe oben) und sind standardmäßig deaktiviert.
 Aktivierung in `~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
-[`config/config.example.toml`](config/config.example.toml) - oder in der GUI im Bereich
+[`config/config.example.toml`](config/config.example.toml), oder in der GUI im Bereich
 "Lüfterkurve (Automatikmodus)" (Punkte per Maus ziehen/hinzufügen/entfernen; präzise Zahlenwerte
 über "Erweiterte Einstellungen").
 
 **Lüfterkurve** (`[auto.fan_curve]`): bildet die CPU-Temperatur per linearer Interpolation
 zwischen konfigurierten `points` (`temp_c`/`raw`-Paare) auf einen Lüfterdrehzahl-Rohwert ab.
-`min_change_raw` verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen - es wird nur
-geschrieben, wenn sich der Zielwert um mindestens so viel ändert. Wirkt nur, während `auto` läuft;
-das GUI-Formular speichert nur die Konfiguration, wendet sie nicht selbst live an.
+`min_change_raw` verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen, da nur
+geschrieben wird, wenn sich der Zielwert um mindestens so viel ändert. Wirkt nur, während `auto`
+läuft; das GUI-Formular speichert nur die Konfiguration, wendet sie nicht selbst live an.
 
 **Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
 (`notify-send`), wenn die CPU-Temperatur `temp_c` erreicht, die gemessene Drehzahl aber unter
 `min_rpm` bleibt. `cooldown_s` verhindert wiederholte Benachrichtigungen, solange die Bedingung
-anhält. Übergangslösung, falls die Lüfterkurve (noch) nicht aktiviert ist.
+anhält. Übergangslösung, falls die Lüfterkurve noch nicht aktiviert ist.
 
-**Verlaufsprotokoll** (`[auto.log]`): schreibt bei aktivem `auto`-Modus fortlaufend eine
-CSV-Zeile (Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an den konfigurierten
-`path`. Nützlich, um im Nachhinein die eigene Lüfterkurve anhand echter Lastdaten zu verfeinern.
+**Verlaufsprotokoll** (`[auto.log]`): schreibt bei aktivem `auto`-Modus fortlaufend eine CSV-Zeile
+(Zeitstempel, CPU-/GPU-Temperatur, Lüfterdrehzahl, Farbe, Effekt) an den konfigurierten `path`.
+Nützlich, um im Nachhinein die eigene Lüfterkurve anhand echter Lastdaten zu verfeinern.
 
 ## Windows-Status
 
-| Datei | Status |
-|---|---|
-| `device.py` | ✅ Live gegen echte Hardware unter Windows 10 getestet (`status`/`light`/`fan-speed`), Lese- und Schreibpfad funktionieren. Braucht zusätzlich die native `hidapi.dll` (nicht im PyPI-Paket `hid` enthalten) irgendwo im DLL-Suchpfad, z.B. neben `python.exe` - Download unter [github.com/libusb/hidapi/releases](https://github.com/libusb/hidapi/releases) |
-| `notify.py` | ✅ Auf `plyer` umgestellt (cross-platform), live unter Linux getestet |
-| `temp.py` | ⚠️ Live getestet - Code funktioniert, bricht aber ohne laufendes [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) (WMI-Export aktiviert) korrekt mit einer klaren Fehlermeldung ab. LibreHardwareMonitor selbst war auf der Testmaschine nicht installiert - der volle Automatikmodus-Regelkreis mit echten Temperaturwerten ist deshalb noch nicht Ende-zu-Ende verifiziert |
-| `gui/service_control.py` | ✅ Live getestet - `schtasks`-Zweig legt die geplante Aufgabe bei Bedarf automatisch an (`start()`/`stop()`/`is_active()` bestätigt fehlerfrei). Ein Encoding-Bug beim Lesen der `schtasks`-Ausgabe auf einem deutschsprachigen Windows (cp1252 vs. tatsächliche Konsolen-Codepage) wurde dabei gefunden und behoben |
+| Datei | Status | Anmerkungen |
+|---|---|---|
+| `device.py` | OK | Live gegen echte Hardware unter Windows 10 getestet (`status`/`light`/`fan-speed`), Lese- und Schreibpfad funktionieren. Braucht zusätzlich die native `hidapi.dll` (nicht im PyPI-Paket `hid` enthalten) irgendwo im DLL-Suchpfad, z.B. neben `python.exe`. Download unter [github.com/libusb/hidapi/releases](https://github.com/libusb/hidapi/releases). |
+| `notify.py` | OK | Auf `plyer` umgestellt (cross-platform), live unter Linux getestet. |
+| `temp.py` | TEILWEISE | Live getestet, Code funktioniert, bricht aber ohne laufendes [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) (WMI-Export aktiviert) korrekt mit einer klaren Fehlermeldung ab. LibreHardwareMonitor selbst war auf der Testmaschine nicht installiert, der volle Automatikmodus-Regelkreis mit echten Temperaturwerten ist deshalb noch nicht Ende-zu-Ende verifiziert. |
+| `gui/service_control.py` | OK | Live getestet. Der `schtasks`-Zweig legt die geplante Aufgabe bei Bedarf automatisch an (`start()`/`stop()`/`is_active()` bestätigt fehlerfrei). Ein Encoding-Bug beim Lesen der `schtasks`-Ausgabe auf einem deutschsprachigen Windows (cp1252 vs. tatsächliche Konsolen-Codepage) wurde dabei gefunden und behoben. |
 
 Rückmeldungen von Windows-Nutzern, insbesondere mit laufendem LibreHardwareMonitor, sind
 willkommen (siehe [Beitragen](#beitragen)).
 
 ## Paket-Status
 
-| Format | Status |
-|---|---|
-| `.msi` (Windows, `packaging/msi/`) | ⏳ Setup-Skript gegen die echte installierte `cx_Freeze`-API geprüft, Build noch nicht Ende-zu-Ende durchgelaufen (braucht einen Windows-CI-Runner oder die Windows-Testmaschine) |
-| `.deb` (`packaging/deb/`) | ⏳ Staging-Schritt (Dateilayout, Wrapper-Skripte, Importpfad) lokal verifiziert; der eigentliche `fpm`-Packaging-Schritt selbst noch nicht durchgelaufen (kein `fpm` in dieser Dev-Umgebung) |
-| Arch-`PKGBUILD` (`packaging/PKGBUILD`) | ⏳ Wheel-Build lokal verifiziert (korrekte Version, Entry-Points); noch nicht durch `makepkg` auf echtem Arch durchgelaufen |
-| AppImage (`packaging/appimage/`) | ⏳ `AppRun`/`.desktop`-Syntax geprüft; voller Build noch nicht durchgelaufen (kein `python3-venv`/`linuxdeploy` in dieser Dev-Umgebung) |
+| Format | Status | Anmerkungen |
+|---|---|---|
+| `.msi` (Windows, `packaging/msi/`) | TBD | Setup-Skript gegen die echte installierte `cx_Freeze`-API geprüft, Build noch nicht Ende-zu-Ende durchgelaufen (braucht einen Windows-CI-Runner oder die Windows-Testmaschine). |
+| `.deb` (`packaging/deb/`) | TBD | Staging-Schritt (Dateilayout, Wrapper-Skripte, Importpfad) lokal verifiziert; der eigentliche `fpm`-Packaging-Schritt selbst noch nicht durchgelaufen (kein `fpm` in dieser Dev-Umgebung). |
+| Arch-`PKGBUILD` (`packaging/PKGBUILD`) | TBD | Wheel-Build lokal verifiziert (korrekte Version, Entry-Points); noch nicht durch `makepkg` auf echtem Arch durchgelaufen. |
+| AppImage (`packaging/appimage/`) | TBD | `AppRun`/`.desktop`-Syntax geprüft; voller Build noch nicht durchgelaufen (kein `python3-venv`/`linuxdeploy` in dieser Dev-Umgebung). |
+| AUR-Veröffentlichung | TBD | Noch nicht eingereicht. Vollständige, eigenständige Anleitung in [`packaging/AUR.md`](packaging/AUR.md). |
 
-Alle vier werden im [`release.yml`](.github/workflows/release.yml) GitHub-Actions-Workflow gebaut,
-ausgelöst durch das Pushen eines `v*`-Tags - das ist der eigentliche erste Ende-zu-Ende-Test für
-jedes davon. Bis das gelaufen und bestätigt ist, gilt das Packaging als neu und noch nicht
-kampferprobt (die Funktionalität selbst - HID-Protokoll, Lüfterkurve, Profile, Automatikmodus - ist
-davon unabhängig, das betrifft nur, wie derselbe Code installiert wird).
+Alle vier Formate werden im [`release.yml`](.github/workflows/release.yml)
+GitHub-Actions-Workflow gebaut, ausgelöst durch das Pushen eines `v*`-Tags. Dieser Workflow-Lauf
+ist der eigentliche erste Ende-zu-Ende-Test für jedes davon. Bis er gelaufen und bestätigt ist,
+gilt das Packaging als neu und noch nicht kampferprobt. Die Funktionalität selbst (HID-Protokoll,
+Lüfterkurve, Profile, Automatikmodus) ist davon unabhängig, da sich nur ändert, wie derselbe Code
+installiert wird.
 
 ## Protokoll-Dokumentation
 
 Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
 Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
 Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py). Der
-komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei Reports,
-keine versteckten weiteren Report-IDs - 64-Byte Input, 64-Byte Output, 8-Byte Feature (vollständig
-reverse-engineered, inklusive des separaten Fan-Speed-Kommandos). Wie diese Herleitung entstanden
-ist, steht in [HISTORY.md](HISTORY.md). `llano-v12ultra-ctrl raw-input` erlaubt weiteres manuelles
-Beobachten des Input-Reports.
+komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei Reports
+und keine versteckten weiteren Report-IDs, nämlich 64-Byte Input, 64-Byte Output und 8-Byte
+Feature (vollständig reverse-engineered, inklusive des separaten Fan-Speed-Kommandos). Wie diese
+Herleitung entstanden ist, steht in [HISTORY.md](HISTORY.md). `llano-v12ultra-ctrl raw-input`
+erlaubt weiteres manuelles Beobachten des Input-Reports.
 
 ## Beitragen
 
-Issues und Pull Requests sind willkommen, insbesondere Rückmeldungen zu anderen llano-V12-Varianten
-oder zusätzlichen effect/color-Werten wären hilfreich. Bitte beim Ändern von `protocol.py`/`device.py`
-Messreihen/Belege für neue Erkenntnisse mitliefern, analog zum bestehenden Dokumentationsstil.
+Issues und Pull Requests sind willkommen. Insbesondere Rückmeldungen zu anderen
+llano-V12-Varianten oder zusätzlichen effect/color-Werten wären hilfreich. Bitte beim Ändern von
+`protocol.py`/`device.py` Messreihen oder Belege für neue Erkenntnisse mitliefern, analog zum
+bestehenden Dokumentationsstil.
 
-**macOS ist nicht geplant** - das Pad ist explizit nicht für den Einsatz an Mac-Geräten geeignet.
+**macOS ist nicht geplant.** Das Pad ist explizit nicht für den Einsatz an Mac-Geräten geeignet.
 
-**Primär gepflegt wird Linux.** Windows-Unterstützung ist ein nachträglich hinzugefügtes Ziel, keine
-gleichrangige Plattform - Rückmeldungen/PRs dazu sind trotzdem willkommen, haben aber nicht dieselbe
-Priorität wie der Linux-Kernbetrieb.
+**Primär gepflegt wird Linux.** Windows-Unterstützung ist ein nachträglich hinzugefügtes Ziel,
+keine gleichrangige Plattform. Rückmeldungen und PRs dazu sind trotzdem willkommen, haben aber
+nicht dieselbe Priorität wie der Linux-Kernbetrieb.
 
 ## Autoren
 
