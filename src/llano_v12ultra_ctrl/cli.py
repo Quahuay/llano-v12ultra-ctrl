@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import time
 
@@ -133,8 +134,45 @@ def cmd_raw_input(args):
     return 0
 
 
+def _config_mtime(path):
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return None
+
+
+def _load_auto_settings(auto_cfg):
+    """Leitet die für die Laufzeit relevanten Werte aus dem [auto]-Config-Block
+    ab - zentral, damit der Erststart und der Hot-Reload weiter unten exakt
+    denselben Code benutzen und nicht auseinanderlaufen können. `temp_sensor`
+    ist bewusst NICHT Teil davon: der wird nur einmal beim Start aufgelöst
+    (siehe cmd_auto) - ein Sensorpfad-Wechsel mitten im Lauf ist weder ein
+    erwarteter Anwendungsfall noch gefahrlos (Auto-Erkennung könnte kurzzeitig
+    nichts finden und den laufenden Betrieb stören)."""
+    thresholds = sorted(auto_cfg["thresholds"], key=lambda t: t["temp_c"])
+    gpu_cfg = auto_cfg.get("gpu_alert", {})
+    fan_cfg = auto_cfg.get("fan_reminder", {})
+    curve_cfg = auto_cfg.get("fan_curve", {})
+    log_cfg = auto_cfg.get("log", {})
+    return {
+        "thresholds": thresholds,
+        "hysteresis": auto_cfg.get("hysteresis_c", 3),
+        "interval": auto_cfg.get("poll_interval_s", 5),
+        "gpu_cfg": gpu_cfg,
+        "gpu_enabled": gpu_cfg.get("enabled", False),
+        "fan_cfg": fan_cfg,
+        "fan_reminder_enabled": fan_cfg.get("enabled", False),
+        "curve_cfg": curve_cfg,
+        "fan_curve_enabled": curve_cfg.get("enabled", False),
+        "curve_min_change": curve_cfg.get("min_change_raw", 3),
+        "log_cfg": log_cfg,
+        "logger": history_mod.HistoryLogger(log_cfg["path"]) if log_cfg.get("enabled", False) else None,
+    }
+
+
 def cmd_auto(args):
     _maybe_print_update_notice()
+    config_path = args.config or config_mod.DEFAULT_CONFIG_PATH
     cfg = config_mod.load_config(args.config)
     auto_cfg = cfg["auto"]
 
@@ -144,11 +182,16 @@ def cmd_auto(args):
         return 1
     print(i18n.t("cli.auto.sensor", path=sensor_path))
 
-    thresholds = sorted(auto_cfg["thresholds"], key=lambda t: t["temp_c"])
-    hysteresis = auto_cfg.get("hysteresis_c", 3)
-    interval = auto_cfg.get("poll_interval_s", 5)
-    gpu_cfg = auto_cfg.get("gpu_alert", {})
-    gpu_enabled = gpu_cfg.get("enabled", False)
+    settings = _load_auto_settings(auto_cfg)
+    thresholds, hysteresis, interval = settings["thresholds"], settings["hysteresis"], settings["interval"]
+    gpu_cfg, gpu_enabled = settings["gpu_cfg"], settings["gpu_enabled"]
+    fan_cfg, fan_reminder_enabled = settings["fan_cfg"], settings["fan_reminder_enabled"]
+    curve_cfg, fan_curve_enabled, curve_min_change = (
+        settings["curve_cfg"], settings["fan_curve_enabled"], settings["curve_min_change"],
+    )
+    log_cfg, logger = settings["log_cfg"], settings["logger"]
+    last_config_mtime = _config_mtime(config_path)
+
     print(i18n.t("cli.auto.thresholds", thresholds=thresholds, hysteresis=hysteresis, interval=interval))
     if gpu_enabled:
         print(i18n.t(
@@ -156,25 +199,15 @@ def cmd_auto(args):
             temp_c=gpu_cfg["temp_c"], off_temp_c=gpu_cfg["temp_c"] - gpu_cfg["hysteresis_c"],
             color=gpu_cfg["color"], effect=gpu_cfg["effect"],
         ))
-
-    fan_cfg = auto_cfg.get("fan_reminder", {})
-    fan_reminder_enabled = fan_cfg.get("enabled", False)
     if fan_reminder_enabled:
         print(i18n.t(
             "cli.auto.fan_reminder",
             temp_c=fan_cfg["temp_c"], min_rpm=fan_cfg["min_rpm"], cooldown_s=fan_cfg.get("cooldown_s", 300),
         ))
-
-    curve_cfg = auto_cfg.get("fan_curve", {})
-    fan_curve_enabled = curve_cfg.get("enabled", False)
-    curve_min_change = curve_cfg.get("min_change_raw", 3)
     if fan_curve_enabled:
         pts = fan_curve_mod.sorted_points(curve_cfg["points"])
         pts_str = ", ".join(f"{p['temp_c']}°C->{p['raw']}" for p in pts)
         print(i18n.t("cli.auto.fan_curve", points=pts_str, min_change=curve_min_change))
-
-    log_cfg = auto_cfg.get("log", {})
-    logger = history_mod.HistoryLogger(log_cfg["path"]) if log_cfg.get("enabled", False) else None
     if logger:
         print(i18n.t("cli.auto.log_path", path=logger.path))
 
@@ -195,6 +228,39 @@ def cmd_auto(args):
                 # Traceback gestorben, statt es wie einen Lesefehler zu
                 # behandeln und beim Wiedereinstecken weiterzulaufen.
                 try:
+                    # Config-Hot-Reload (seit v0.1.3): die Schleife wacht
+                    # ohnehin alle `interval`s Sekunden auf, ein zusätzlicher
+                    # mtime-Stat ist praktisch gratis. Vorher wirkte z.B.
+                    # "Lüfterkurve speichern" in der GUI erst beim nächsten
+                    # Neustart des Daemons - siehe README, "Fan Curve & Fan
+                    # Reminder".
+                    current_mtime = _config_mtime(config_path)
+                    if current_mtime is not None and current_mtime != last_config_mtime:
+                        last_config_mtime = current_mtime
+                        try:
+                            reloaded_auto_cfg = config_mod.load_config(args.config)["auto"]
+                            settings = _load_auto_settings(reloaded_auto_cfg)
+                        except Exception as e:
+                            # z.B. TOML noch halb geschrieben/kaputt bearbeitet -
+                            # alte Einstellungen behalten statt abzustürzen, beim
+                            # nächsten echten Speichern (neue mtime) erneut versuchen.
+                            print(
+                                f"[{time.strftime('%H:%M:%S')}] "
+                                f"{i18n.t('cli.auto.config_reload_error', error=e)}",
+                                flush=True,
+                            )
+                        else:
+                            thresholds, hysteresis, interval = (
+                                settings["thresholds"], settings["hysteresis"], settings["interval"],
+                            )
+                            gpu_cfg, gpu_enabled = settings["gpu_cfg"], settings["gpu_enabled"]
+                            fan_cfg, fan_reminder_enabled = settings["fan_cfg"], settings["fan_reminder_enabled"]
+                            curve_cfg, fan_curve_enabled, curve_min_change = (
+                                settings["curve_cfg"], settings["fan_curve_enabled"], settings["curve_min_change"],
+                            )
+                            log_cfg, logger = settings["log_cfg"], settings["logger"]
+                            print(f"[{time.strftime('%H:%M:%S')}] {i18n.t('cli.auto.config_reloaded')}", flush=True)
+
                     t = temp_mod.read_temp_c(sensor_path)
                     gpu_t = temp_mod.read_gpu_temp_c() if gpu_enabled else None
                     report = dev.get_report()

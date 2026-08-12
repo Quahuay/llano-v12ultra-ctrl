@@ -167,9 +167,76 @@ class TestFanCurveInLoop(AutoLoopTestCase):
         self.assertEqual(len(pad.fan_writes), 1, f"unnötige Schreibzugriffe: {pad.fan_writes}")
 
     def test_no_fan_writes_when_disabled(self):
+        # Seit v0.1.3 ist [auto.fan_curve].enabled standardmäßig true - hier
+        # explizit auf false setzen statt (wie vorher) auf den Default zu
+        # vertrauen, sonst testet dieser Test nach einem künftigen
+        # Default-Wechsel versehentlich das Gegenteil dessen, was der Name sagt.
         pad = FakePad(stop_after=3)
-        self.run_auto(pad, "[auto]\npoll_interval_s = 0\n")
+        self.run_auto(pad, "[auto]\npoll_interval_s = 0\n\n[auto.fan_curve]\nenabled = false\n")
         self.assertEqual(pad.fan_writes, [])
+
+
+class TestConfigHotReload(AutoLoopTestCase):
+    """Deckt den in v0.1.3 hinzugefügten mtime-basierten Config-Hot-Reload ab:
+    eine Änderung an der Config-Datei WÄHREND `auto` läuft muss ohne Neustart
+    des Daemons wirken (vorher wurden Lüfterkurve & Co. nur einmal beim Start
+    gelesen, z.B. bei "Lüfterkurve speichern" in der GUI)."""
+
+    INITIAL = (
+        "[auto]\npoll_interval_s = 0\n\n"
+        "[auto.fan_curve]\nenabled = true\nmin_change_raw = 3\n"
+        "points = [ { temp_c = 30, raw = 1 }, { temp_c = 85, raw = 20 } ]\n"
+    )
+    RELOADED = (
+        "[auto]\npoll_interval_s = 0\n\n"
+        "[auto.fan_curve]\nenabled = true\nmin_change_raw = 3\n"
+        "points = [ { temp_c = 30, raw = 1 }, { temp_c = 85, raw = 77 } ]\n"
+    )
+
+    class ReloadingPad(FakePad):
+        """Schreibt beim `reload_after`-ten gelesenen Report eine neue Config
+        nach `cfg_path` - simuliert ein "Speichern" in der GUI, während `auto`
+        bereits läuft. `os.utime` erzwingt eine spätere mtime unabhängig
+        davon, wie fein die Zeitauflösung des Dateisystems ist oder wie
+        schnell der Test tatsächlich läuft."""
+
+        def __init__(self, cfg_path, new_config, reload_after, **kwargs):
+            super().__init__(**kwargs)
+            self.cfg_path = cfg_path
+            self.new_config = new_config
+            self.reload_after = reload_after
+            self._rewritten = False
+
+        def get_report(self):
+            if not self._rewritten and self.reads >= self.reload_after:
+                self._rewritten = True
+                with open(self.cfg_path, "w", encoding="utf-8") as f:
+                    f.write(self.new_config)
+                bumped_mtime = os.path.getmtime(self.cfg_path) + 5
+                os.utime(self.cfg_path, (bumped_mtime, bumped_mtime))
+            return super().get_report()
+
+    def test_picks_up_changed_fan_curve_without_restart(self):
+        pad = self.ReloadingPad(self.cfg_path, self.RELOADED, reload_after=2, stop_after=6)
+        rc, output = self.run_auto(pad, self.INITIAL)
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            pad.fan_writes, [20, 77],
+            f"Config-Änderung nicht (rechtzeitig) übernommen: {pad.fan_writes}",
+        )
+        self.assertIn("Config reloaded", output)
+
+    def test_reload_of_broken_config_keeps_previous_settings(self):
+        """Eine während des Bearbeitens kurzzeitig kaputte TOML-Datei darf den
+        Daemon nicht abstürzen lassen - die alten Einstellungen bleiben
+        aktiv, bis eine gültige neue Version gespeichert wird."""
+        pad = self.ReloadingPad(self.cfg_path, "not valid toml [[[", reload_after=2, stop_after=6)
+        rc, output = self.run_auto(pad, self.INITIAL)
+        self.assertEqual(rc, 0)
+        # Kurve bleibt bei der alten Einstellung aktiv (raw=20), kein Absturz,
+        # kein zusätzlicher Schreibzugriff durch die kaputte Config.
+        self.assertEqual(pad.fan_writes, [20])
+        self.assertIn("Config reload failed", output)
 
 
 class TestMissingSensor(AutoLoopTestCase):

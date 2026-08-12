@@ -5,8 +5,8 @@
 # 4=orange) based on CPU temperature - a visual temperature indicator right
 # on the pad. There's also a separate GPU temperature alert below (purple +
 # breathing effect) that overrides the CPU color logic when needed, plus an
-# optional (fan_curve, disabled by default) real temperature-based fan speed
-# control.
+# optional (fan_curve, enabled by default since v0.1.3) real temperature-based
+# fan speed control.
 
 [general]
 # CLI/GUI language: "en" (default) or "de". Can also be overridden per call
@@ -73,10 +73,11 @@ cooldown_s = 300
 # get sorted internally. Below the lowest / above the highest point, the
 # respective edge value is held (no extrapolation). min_change_raw prevents
 # constantly re-adjusting on small temperature fluctuations - it only
-# writes when the target value changes by at least this much. Disabled
-# (opt-in) by default.
+# writes when the target value changes by at least this much. Enabled by
+# default since v0.1.3 (the software fan control is hardware-verified, see
+# PROTOCOL.md NACHTRAG 8/11) - set to false below to opt back out.
 [auto.fan_curve]
-enabled = false
+enabled = true
 min_change_raw = 3
 
 [[auto.fan_curve.points]]

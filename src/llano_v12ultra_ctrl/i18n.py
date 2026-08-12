@@ -90,6 +90,8 @@ _EN = {
     ),
     "cli.auto.fan_curve": "Fan curve: active ({points}), min_change_raw={min_change}",
     "cli.auto.log_path": "History log: {path}",
+    "cli.auto.config_reloaded": "Config reloaded (file changed).",
+    "cli.auto.config_reload_error": "Config reload failed, keeping previous settings: {error}",
     "cli.auto.color_change": "[{ts}] CPU={cpu_info}{gpu_info} -> {color_name} [{effect_name}]",
     "cli.auto.fan_curve_change": "[{ts}] CPU={temp:.1f}°C -> fan curve: raw={raw} ({rpm} RPM)",
     "cli.auto.notify_title": "llano-v12ultra-ctrl: fan too slow",
@@ -186,10 +188,18 @@ _EN = {
     "gui.fan_curve.table.raw": "Fan speed (raw 1-100)",
     "gui.fan_curve.add_point": "Add point",
     "gui.fan_curve.remove_point": "Remove selected point",
+    "gui.fan_curve.min_change_label": "Min. change to react (raw)",
     "gui.fan_curve.save": "Save",
     "gui.fan_curve.save_error_title": "Fan curve",
     "gui.fan_curve.save_error_text": "At least one point is required.",
-    "gui.fan_curve.save_done": "Fan curve saved (takes effect next time 'auto' starts)",
+    "gui.fan_curve.save_done": "Fan curve saved (a running 'auto' picks it up within one poll interval)",
+
+    # --- gui: fan reminder (lives in the fan curve group's Advanced Settings) ---
+    "gui.fan_reminder.section_title": "Fan reminder",
+    "gui.fan_reminder.enable": "Enable fan reminder",
+    "gui.fan_reminder.temp_label": "Trigger temperature (°C)",
+    "gui.fan_reminder.min_rpm_label": "Minimum speed (RPM)",
+    "gui.fan_reminder.cooldown_label": "Cooldown (s)",
 
     # --- gui: auto group ---
     "gui.auto.title": "Auto Mode (Temperature)",
@@ -200,6 +210,7 @@ _EN = {
     "gui.auto.resume": "Resume",
     "gui.auto.warning": "Note: Auto mode is active. Manual changes may be overwritten again within a few seconds.",
     "gui.auto.hint": "Pausing only applies to this session. The service stays enabled and runs normally again after the next login/restart.",
+    "gui.auto.toggle_error": "Could not change auto mode (command timed out or failed).",
 
     # --- gui: language ---
     "gui.language.title": "Language",
@@ -271,6 +282,8 @@ _DE = {
     ),
     "cli.auto.fan_curve": "Lüfterkurve: aktiv ({points}), min_change_raw={min_change}",
     "cli.auto.log_path": "Verlaufsprotokoll: {path}",
+    "cli.auto.config_reloaded": "Konfiguration neu geladen (Datei geändert).",
+    "cli.auto.config_reload_error": "Konfiguration konnte nicht neu geladen werden, vorherige Einstellungen bleiben aktiv: {error}",
     "cli.auto.color_change": "[{ts}] CPU={cpu_info}{gpu_info} -> {color_name} [{effect_name}]",
     "cli.auto.fan_curve_change": "[{ts}] CPU={temp:.1f}°C -> Lüfterkurve: raw={raw} ({rpm} U/min)",
     "cli.auto.notify_title": "llano-v12ultra-ctrl: Lüfter zu langsam",
@@ -358,10 +371,18 @@ _DE = {
     "gui.fan_curve.table.raw": "Drehzahl (raw 1-100)",
     "gui.fan_curve.add_point": "Punkt hinzufügen",
     "gui.fan_curve.remove_point": "Ausgewählten Punkt entfernen",
+    "gui.fan_curve.min_change_label": "Mindeständerung zum Reagieren (raw)",
     "gui.fan_curve.save": "Speichern",
     "gui.fan_curve.save_error_title": "Lüfterkurve",
     "gui.fan_curve.save_error_text": "Mindestens ein Punkt wird benötigt.",
-    "gui.fan_curve.save_done": "Lüfterkurve gespeichert (wirkt beim nächsten Start von 'auto')",
+    "gui.fan_curve.save_done": "Lüfterkurve gespeichert (ein laufendes 'auto' übernimmt sie innerhalb eines Poll-Intervalls)",
+
+    # --- gui: Lüfter-Erinnerung (lebt in "Erweiterte Einstellungen" der Lüfterkurve) ---
+    "gui.fan_reminder.section_title": "Lüfter-Erinnerung",
+    "gui.fan_reminder.enable": "Lüfter-Erinnerung aktivieren",
+    "gui.fan_reminder.temp_label": "Auslöse-Temperatur (°C)",
+    "gui.fan_reminder.min_rpm_label": "Mindestdrehzahl (U/min)",
+    "gui.fan_reminder.cooldown_label": "Abklingzeit (s)",
 
     "gui.auto.title": "Automatikmodus (Temperatur)",
     "gui.auto.status.unknown": "Status: unbekannt",
@@ -371,6 +392,7 @@ _DE = {
     "gui.auto.resume": "Fortsetzen",
     "gui.auto.warning": "Hinweis: Automatikmodus aktiv. Manuelle Änderungen können innerhalb weniger Sekunden wieder überschrieben werden.",
     "gui.auto.hint": "Pausieren gilt nur für diese Sitzung. Der Dienst bleibt aktiviert und läuft nach dem nächsten Login/Neustart normal weiter.",
+    "gui.auto.toggle_error": "Automatikmodus konnte nicht umgeschaltet werden (Befehl hat zu lange gedauert oder ist fehlgeschlagen).",
 
     "gui.language.title": "Sprache",
     "gui.language.restart_hint": "Wirkt nach einem Neustart der Anwendung.",

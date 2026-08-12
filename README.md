@@ -56,7 +56,7 @@ mentioned brand names belong to their respective owners.
   of the 100 raw values was tested individually, so no more physical wheel-turning is needed.
 - **Auto mode**: RGB color (and optionally effect) switches based on CPU/GPU temperature (a visual
   temperature indicator right on the pad), optionally as a background systemd user service
-- **Fan curve** (opt-in): maps CPU temperature via linear interpolation between freely configurable
+- **Fan curve** (enabled by default since v0.1.3): maps CPU temperature via linear interpolation between freely configurable
   points onto a fan speed. Available in the GUI as an interactive graph (drag/add/remove points),
   with precise numeric values optionally via "Advanced Settings". See
   [Fan Curve & Fan Reminder](#fan-curve--fan-reminder).
@@ -88,7 +88,7 @@ Fan speed and light are two completely separate HID commands (see
 was found, including every dead end along the way, is in [HISTORY.md](HISTORY.md).
 
 Auto mode (see below) can optionally also control fan speed based on temperature (fan curve,
-disabled by default). See [Fan Curve & Fan Reminder](#fan-curve--fan-reminder).
+enabled by default since v0.1.3). See [Fan Curve & Fan Reminder](#fan-curve--fan-reminder).
 
 ## Installation
 
@@ -246,17 +246,21 @@ sensor found" (confirmed live).
 
 ## Fan Curve & Fan Reminder
 
-All three options live inside `auto` mode (see above) and are disabled by default. Enable them in
+All three options live inside `auto` mode (see above). Since v0.1.3, the fan curve is enabled by
+default (see [Hardware Background](#hardware-background)); fan reminder and the history log stay
+disabled by default. Configure them in
 `~/.config/llano-v12ultra-ctrl/config.toml`, see the commented examples in
 [`config/config.example.toml`](config/config.example.toml), or use the GUI's "Fan Curve (Auto
-Mode)" section (drag points with the mouse to add/move/remove; precise numeric values via "Advanced
-Settings").
+Mode)" section: drag points with the mouse to add/move/remove, with `min_change_raw` and the full
+fan reminder (enable/temperature/RPM/cooldown) under "Advanced Settings" (also added in v0.1.3).
+The history log stays config-file-only, there's no GUI form for it.
 
 **Fan curve** (`[auto.fan_curve]`): maps CPU temperature via linear interpolation between
 configured `points` (`temp_c`/`raw` pairs) onto a fan speed raw value. `min_change_raw` prevents
 constantly re-adjusting on small temperature fluctuations, since it only writes when the target
-value changes by at least this much. Only takes effect while `auto` is running; the GUI form only
-saves the configuration, it doesn't apply it live itself.
+value changes by at least this much. Only takes effect while `auto` is running. The GUI form just
+saves the configuration - a running `auto` daemon (CLI or the systemd/schtasks background service)
+picks up the change on its own within one `poll_interval_s` (no restart needed, since v0.1.3).
 
 **Fan reminder** (`[auto.fan_reminder]`): sends a desktop notification (`notify-send`) when the CPU
 temperature reaches `temp_c` but the measured speed stays below `min_rpm`. `cooldown_s` prevents

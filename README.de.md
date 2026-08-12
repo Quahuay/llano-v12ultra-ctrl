@@ -58,7 +58,7 @@ ihren jeweiligen Inhabern.
   einzelne der 100 Rohwerte wurde einzeln durchgetestet, kein physisches Rad-Drehen mehr nötig.
 - **Automatikmodus**: RGB-Farbe (und optional Effekt) schaltet abhängig von CPU-/GPU-Temperatur um
   (visueller Temperatur-Indikator direkt am Pad), optional als systemd-User-Service im Hintergrund
-- **Lüfterkurve** (opt-in): bildet die CPU-Temperatur per linearer Interpolation zwischen frei
+- **Lüfterkurve** (seit v0.1.3 standardmäßig aktiv): bildet die CPU-Temperatur per linearer Interpolation zwischen frei
   konfigurierbaren Punkten auf eine Lüfterdrehzahl ab. In der GUI als interaktive Grafik verfügbar
   (Punkte ziehen/hinzufügen/entfernen), Zahlenwerte optional über "Erweiterte Einstellungen". Siehe
   [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung).
@@ -92,7 +92,7 @@ Fan-Kommando gefunden wurde, inklusive aller Sackgassen unterwegs, steht in
 [HISTORY.md](HISTORY.md).
 
 Der Automatikmodus (siehe unten) kann optional auch die Lüfterdrehzahl temperaturbasiert regeln
-(Lüfterkurve, standardmäßig deaktiviert). Siehe
+(Lüfterkurve, seit v0.1.3 standardmäßig aktiv). Siehe
 [Lüfterkurve & Lüfter-Erinnerung](#lüfterkurve--lüfter-erinnerung).
 
 ## Installation
@@ -236,17 +236,23 @@ CPU-Temperatursensor gefunden" ab (live bestätigt).
 
 ## Lüfterkurve & Lüfter-Erinnerung
 
-Alle drei Optionen leben im `auto`-Modus (siehe oben) und sind standardmäßig deaktiviert.
-Aktivierung in `~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
+Alle drei Optionen leben im `auto`-Modus (siehe oben). Seit v0.1.3 ist die Lüfterkurve
+standardmäßig aktiv (siehe [Hardware-Hintergrund](#hardware-hintergrund)); Lüfter-Erinnerung und
+Verlaufsprotokoll bleiben standardmäßig deaktiviert. Konfiguration in
+`~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
 [`config/config.example.toml`](config/config.example.toml), oder in der GUI im Bereich
-"Lüfterkurve (Automatikmodus)" (Punkte per Maus ziehen/hinzufügen/entfernen; präzise Zahlenwerte
-über "Erweiterte Einstellungen").
+"Lüfterkurve (Automatikmodus)": Punkte per Maus ziehen/hinzufügen/entfernen, `min_change_raw` und
+die vollständige Lüfter-Erinnerung (Aktivieren/Temperatur/Drehzahl/Abklingzeit) unter "Erweiterte
+Einstellungen" (ebenfalls neu seit v0.1.3). Das Verlaufsprotokoll bleibt reine
+Config-Datei-Einstellung, dafür gibt es kein GUI-Formular.
 
 **Lüfterkurve** (`[auto.fan_curve]`): bildet die CPU-Temperatur per linearer Interpolation
 zwischen konfigurierten `points` (`temp_c`/`raw`-Paare) auf einen Lüfterdrehzahl-Rohwert ab.
 `min_change_raw` verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen, da nur
 geschrieben wird, wenn sich der Zielwert um mindestens so viel ändert. Wirkt nur, während `auto`
-läuft; das GUI-Formular speichert nur die Konfiguration, wendet sie nicht selbst live an.
+läuft. Das GUI-Formular speichert nur die Konfiguration - ein laufender `auto`-Daemon (CLI oder der
+systemd-/schtasks-Hintergrunddienst) übernimmt die Änderung von selbst innerhalb eines
+`poll_interval_s` (kein Neustart nötig, seit v0.1.3).
 
 **Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
 (`notify-send`), wenn die CPU-Temperatur `temp_c` erreicht, die gemessene Drehzahl aber unter
@@ -273,18 +279,15 @@ willkommen (siehe [Beitragen](#beitragen)).
 
 | Format | Status | Anmerkungen |
 |---|---|---|
-| `.msi` (Windows, `packaging/msi/`) | TBD | Setup-Skript gegen die echte installierte `cx_Freeze`-API geprüft, Build noch nicht Ende-zu-Ende durchgelaufen (braucht einen Windows-CI-Runner oder die Windows-Testmaschine). |
-| `.deb` (`packaging/deb/`) | TBD | Staging-Schritt (Dateilayout, Wrapper-Skripte, Importpfad) lokal verifiziert; der eigentliche `fpm`-Packaging-Schritt selbst noch nicht durchgelaufen (kein `fpm` in dieser Dev-Umgebung). |
-| Arch-`PKGBUILD` (`packaging/PKGBUILD`) | TBD | Wheel-Build lokal verifiziert (korrekte Version, Entry-Points); noch nicht durch `makepkg` auf echtem Arch durchgelaufen. |
-| AppImage (`packaging/appimage/`) | TBD | `AppRun`/`.desktop`-Syntax geprüft; voller Build noch nicht durchgelaufen (kein `python3-venv`/`linuxdeploy` in dieser Dev-Umgebung). |
-| AUR-Veröffentlichung | TBD | Noch nicht eingereicht. Vollständige, eigenständige Anleitung in [`packaging/AUR.md`](packaging/AUR.md). |
+| `.msi` (Windows, `packaging/msi/`) | OK | Gebaut per GitHub-Actions-CI (windows-latest, Python 3.12, cx_Freeze). Live getestet auf echter Windows-10-Hardware (`status`/`fan-speed`/CLI funktionieren, "Gerät nicht gefunden" ist korrekt - das Pad war beim Remote-Test nicht angeschlossen). |
+| `.deb` (`packaging/deb/`) | OK | Gebaut per CI (fpm), Ende-zu-Ende verifiziert. |
+| Arch-`PKGBUILD` (`packaging/PKGBUILD`) | OK | Gebaut per CI (makepkg im archlinux-Container), Ende-zu-Ende verifiziert. Selbst kompilieren: siehe [`packaging/PKGBUILD`](packaging/PKGBUILD)/[`packaging/AUR.md`](packaging/AUR.md). |
+| AppImage (`packaging/appimage/`) | OK | Gebaut per CI (appimagetool). Eine .AppImage für alle Linux-Distros ohne eigenes Paket. |
+| AUR-Veröffentlichung | TBD | Noch nicht eingereicht. Vollständige, eigenständige Anleitung in [`packaging/AUR.md`](packaging/AUR.md). Selbst kompilieren ohne AUR: siehe oben. |
 
 Alle vier Formate werden im [`release.yml`](.github/workflows/release.yml)
-GitHub-Actions-Workflow gebaut, ausgelöst durch das Pushen eines `v*`-Tags. Dieser Workflow-Lauf
-ist der eigentliche erste Ende-zu-Ende-Test für jedes davon. Bis er gelaufen und bestätigt ist,
-gilt das Packaging als neu und noch nicht kampferprobt. Die Funktionalität selbst (HID-Protokoll,
-Lüfterkurve, Profile, Automatikmodus) ist davon unabhängig, da sich nur ändert, wie derselbe Code
-installiert wird.
+GitHub-Actions-Workflow automatisch bei jedem Push eines `v*`-Tags gebaut und dem jeweiligen
+[GitHub Release](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) angehängt.
 
 ## Protokoll-Dokumentation
 

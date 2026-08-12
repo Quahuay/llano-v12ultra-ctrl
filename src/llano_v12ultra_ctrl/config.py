@@ -59,13 +59,23 @@ DEFAULT_CONFIG = {
         },
         # Lüfterkurve: bildet die CPU-Temperatur per stückweise linearer
         # Interpolation auf einen fan_speed-Rohwert (1-100) ab, siehe
-        # fan_curve.py. Standardmäßig deaktiviert (opt-in) - das physische
-        # Rad bleibt sonst die einzige Drehzahlquelle. min_change_raw
+        # fan_curve.py. Seit v0.1.3 standardmäßig aktiv (vorher opt-in) -
+        # die Software-Lüftersteuerung ist inzwischen hardware-verifiziert
+        # (siehe PROTOCOL.md NACHTRAG 8/11), ein Grund für "aus" bleibt also
+        # nicht mehr. ACHTUNG beim Verhalten für bestehende Installationen:
+        # load_config() merged nur Keys, die WIRKLICH in der config.toml des
+        # Nutzers stehen (siehe unten) - nur wer schon einmal über die GUI
+        # "Lüfterkurve speichern" geklickt (oder von Hand `enabled` gesetzt)
+        # hat, hat ein explizites `enabled` in seiner Datei und behält damit
+        # seinen bisherigen Wert. Alle anderen bestehenden Installationen
+        # (kein `[auto.fan_curve]`-Block in der Datei) springen mit dem
+        # Update auf diesen neuen Default um, nicht nur Neuinstallationen -
+        # bewusste Entscheidung, siehe Release-Notes v0.1.3. min_change_raw
         # verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen
         # (nur schreiben, wenn sich der Zielwert um mindestens so viel
         # ändert).
         "fan_curve": {
-            "enabled": False,
+            "enabled": True,
             "points": [
                 {"temp_c": 30, "raw": 1},
                 {"temp_c": 50, "raw": 30},
@@ -171,6 +181,45 @@ def save_fan_curve(enabled, points, min_change_raw=3, path=None):
 
 def sorted_points_for_save(points):
     return sorted(points, key=lambda p: p["temp_c"])
+
+
+def save_fan_reminder(enabled, temp_c, min_rpm, cooldown_s, path=None):
+    """Schreibt (nur) den [auto.fan_reminder]-Abschnitt in die Config-Datei,
+    ohne andere Abschnitte anzutasten. Gleiches Muster wie save_fan_curve():
+    die GUI setzt hier immer alle vier Felder zusammen, ein Ganzblock-Ersatz
+    ist also einfacher und genauso korrekt wie eine Key-für-Key-Erhaltung."""
+    path = path or DEFAULT_CONFIG_PATH
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    block = (
+        "[auto.fan_reminder]\n"
+        f"enabled = {'true' if enabled else 'false'}\n"
+        f"temp_c = {int(temp_c)}\n"
+        f"min_rpm = {int(min_rpm)}\n"
+        f"cooldown_s = {int(cooldown_s)}\n"
+    )
+
+    existing = ""
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            existing = f.read()
+
+    if "[auto.fan_reminder]" in existing:
+        before, _, after = existing.partition("[auto.fan_reminder]")
+        rest_lines = after.split("\n")
+        cut = len(rest_lines)
+        for i, line in enumerate(rest_lines[1:], start=1):
+            if line.startswith("["):
+                cut = i
+                break
+        after = "\n".join(rest_lines[cut:])
+        new_content = before + block + after
+    else:
+        sep = "\n" if existing and not existing.endswith("\n") else ""
+        new_content = existing + sep + ("\n" if existing else "") + block
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(new_content)
 
 
 def save_language(language, path=None):

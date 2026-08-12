@@ -22,30 +22,58 @@ import sys
 SERVICE_NAME = "llano-v12ultra-ctrl.service"
 WINDOWS_TASK_NAME = "llano-v12ultra-ctrl-auto"
 
+# `_poll_service()` in der GUI ruft die *_active_* Funktionen alle 2s auf dem
+# Qt-Event-Loop-Thread auf (main_window.py, kein eigener QThread dafür - siehe
+# dortiger Moduldokstring: ioctls sind sub-millisecond, das gilt aber NICHT für
+# Subprozessaufrufe). Ohne Timeout würde ein hängender systemd-User-Session-
+# oder schtasks-Aufruf die komplette GUI (inkl. RPM-Anzeige) unbegrenzt
+# einfrieren. Zwei Stufen: kurz für reine Statusabfragen (müssen die GUI am
+# Leben halten), großzügiger für nutzerinitiierte, mutierende Aktionen.
+STATUS_TIMEOUT_S = 3
+ACTION_TIMEOUT_S = 10
+
 
 def _is_active_linux() -> bool:
-    result = subprocess.run(
-        ["systemctl", "--user", "is-active", "--quiet", SERVICE_NAME],
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            ["systemctl", "--user", "is-active", "--quiet", SERVICE_NAME],
+            capture_output=True, timeout=STATUS_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
 def _stop_linux() -> bool:
-    result = subprocess.run(["systemctl", "--user", "stop", SERVICE_NAME], capture_output=True)
+    try:
+        result = subprocess.run(
+            ["systemctl", "--user", "stop", SERVICE_NAME],
+            capture_output=True, timeout=ACTION_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
 def _start_linux() -> bool:
-    result = subprocess.run(["systemctl", "--user", "start", SERVICE_NAME], capture_output=True)
+    try:
+        result = subprocess.run(
+            ["systemctl", "--user", "start", SERVICE_NAME],
+            capture_output=True, timeout=ACTION_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
 def _task_exists_windows() -> bool:
-    result = subprocess.run(
-        ["schtasks", "/query", "/tn", WINDOWS_TASK_NAME],
-        capture_output=True, text=True, errors="replace",
-    )
+    try:
+        result = subprocess.run(
+            ["schtasks", "/query", "/tn", WINDOWS_TASK_NAME],
+            capture_output=True, text=True, errors="replace", timeout=STATUS_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
@@ -90,13 +118,16 @@ def _register_task_windows() -> bool:
     Nutzers (`/rl limited`), kein SYSTEM/Scheduled-Task-Elevation-Ärger wie
     beim einmaligen Windows-Setup (siehe HISTORY.md)."""
     command = _find_cli_command()
-    result = subprocess.run(
-        [
-            "schtasks", "/create", "/tn", WINDOWS_TASK_NAME,
-            "/tr", command, "/sc", "onlogon", "/rl", "limited", "/f",
-        ],
-        capture_output=True, text=True, errors="replace",
-    )
+    try:
+        result = subprocess.run(
+            [
+                "schtasks", "/create", "/tn", WINDOWS_TASK_NAME,
+                "/tr", command, "/sc", "onlogon", "/rl", "limited", "/f",
+            ],
+            capture_output=True, text=True, errors="replace", timeout=ACTION_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
@@ -104,10 +135,13 @@ def _is_active_windows() -> bool:
     """`schtasks /query .../v` liefert im "Status"-Feld u.a. "Running" oder
     "Ready" zurück. Liefert False (statt Fehler), solange die Aufgabe noch
     nicht registriert ist - dafür ist `_register_task_windows()` da."""
-    result = subprocess.run(
-        ["schtasks", "/query", "/tn", WINDOWS_TASK_NAME, "/fo", "list", "/v"],
-        capture_output=True, text=True, errors="replace",
-    )
+    try:
+        result = subprocess.run(
+            ["schtasks", "/query", "/tn", WINDOWS_TASK_NAME, "/fo", "list", "/v"],
+            capture_output=True, text=True, errors="replace", timeout=STATUS_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0 and "Running" in result.stdout
 
 
@@ -115,7 +149,13 @@ def _stop_windows() -> bool:
     """Beendet die laufende Instanz; die Registrierung der geplanten Aufgabe
     selbst bleibt bestehen (kommt beim nächsten Login normal wieder, analog
     zum `enabled`-Zustand unter systemd)."""
-    result = subprocess.run(["schtasks", "/end", "/tn", WINDOWS_TASK_NAME], capture_output=True)
+    try:
+        result = subprocess.run(
+            ["schtasks", "/end", "/tn", WINDOWS_TASK_NAME],
+            capture_output=True, timeout=ACTION_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 
@@ -126,7 +166,13 @@ def _start_windows() -> bool:
     siehe Moduldokstring."""
     if not _task_exists_windows() and not _register_task_windows():
         return False
-    result = subprocess.run(["schtasks", "/run", "/tn", WINDOWS_TASK_NAME], capture_output=True)
+    try:
+        result = subprocess.run(
+            ["schtasks", "/run", "/tn", WINDOWS_TASK_NAME],
+            capture_output=True, timeout=ACTION_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0
 
 

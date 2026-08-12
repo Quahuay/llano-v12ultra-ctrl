@@ -469,6 +469,46 @@ class MainWindow(QMainWindow):
         button_row.addWidget(self.fan_curve_remove_button)
         adv_layout.addLayout(button_row)
 
+        min_change_row = QHBoxLayout()
+        min_change_row.addWidget(QLabel(i18n.t("gui.fan_curve.min_change_label")))
+        self.fan_curve_min_change_spin = QSpinBox()
+        self.fan_curve_min_change_spin.setRange(1, 100)
+        min_change_row.addWidget(self.fan_curve_min_change_spin)
+        adv_layout.addLayout(min_change_row)
+
+        # Lüfter-Erinnerung ([auto.fan_reminder]) lebt bewusst hier statt in
+        # einer eigenen Top-Level-Gruppe: README behandelt sie zusammen mit
+        # der Lüfterkurve ("Fan Curve & Fan Reminder"), und beide sind
+        # gleichermaßen reine auto-Konfiguration ohne Live-Gerätezugriff.
+        reminder_title = QLabel(f"<b>{i18n.t('gui.fan_reminder.section_title')}</b>")
+        adv_layout.addWidget(reminder_title)
+
+        self.fan_reminder_enabled_checkbox = QCheckBox(i18n.t("gui.fan_reminder.enable"))
+        adv_layout.addWidget(self.fan_reminder_enabled_checkbox)
+
+        reminder_temp_row = QHBoxLayout()
+        reminder_temp_row.addWidget(QLabel(i18n.t("gui.fan_reminder.temp_label")))
+        self.fan_reminder_temp_spin = QSpinBox()
+        self.fan_reminder_temp_spin.setRange(0, 110)
+        reminder_temp_row.addWidget(self.fan_reminder_temp_spin)
+        adv_layout.addLayout(reminder_temp_row)
+
+        reminder_rpm_row = QHBoxLayout()
+        reminder_rpm_row.addWidget(QLabel(i18n.t("gui.fan_reminder.min_rpm_label")))
+        self.fan_reminder_min_rpm_spin = QSpinBox()
+        self.fan_reminder_min_rpm_spin.setRange(0, 3000)
+        self.fan_reminder_min_rpm_spin.setSingleStep(50)
+        reminder_rpm_row.addWidget(self.fan_reminder_min_rpm_spin)
+        adv_layout.addLayout(reminder_rpm_row)
+
+        reminder_cooldown_row = QHBoxLayout()
+        reminder_cooldown_row.addWidget(QLabel(i18n.t("gui.fan_reminder.cooldown_label")))
+        self.fan_reminder_cooldown_spin = QSpinBox()
+        self.fan_reminder_cooldown_spin.setRange(10, 3600)
+        self.fan_reminder_cooldown_spin.setSingleStep(10)
+        reminder_cooldown_row.addWidget(self.fan_reminder_cooldown_spin)
+        adv_layout.addLayout(reminder_cooldown_row)
+
         self.fan_curve_advanced_box.setVisible(False)
         layout.addWidget(self.fan_curve_advanced_box)
 
@@ -494,14 +534,16 @@ class MainWindow(QMainWindow):
         cfg = config_mod.load_config()
         curve_cfg = cfg["auto"]["fan_curve"]
         self.fan_curve_enabled_checkbox.setChecked(curve_cfg.get("enabled", False))
-        # min_change_raw hat kein Bedienelement in der GUI, muss aber beim
-        # Speichern erhalten bleiben: save_fan_curve() schreibt den ganzen
-        # [auto.fan_curve]-Block neu, ein fester Default würde einen vom
-        # Nutzer gesetzten Wert also stillschweigend überschreiben.
-        self._fan_curve_min_change = curve_cfg.get("min_change_raw", 3)
+        self.fan_curve_min_change_spin.setValue(curve_cfg.get("min_change_raw", 3))
         points = fan_curve_mod.sorted_points(curve_cfg.get("points", []))
         self.fan_curve_graph.set_points(points)
         self._rebuild_curve_table(points)
+
+        reminder_cfg = cfg["auto"]["fan_reminder"]
+        self.fan_reminder_enabled_checkbox.setChecked(reminder_cfg.get("enabled", False))
+        self.fan_reminder_temp_spin.setValue(reminder_cfg.get("temp_c", 75))
+        self.fan_reminder_min_rpm_spin.setValue(reminder_cfg.get("min_rpm", 1500))
+        self.fan_reminder_cooldown_spin.setValue(reminder_cfg.get("cooldown_s", 300))
 
     def _rebuild_curve_table(self, points):
         """Baut die erweiterte Tabelle aus `points` neu auf - wird sowohl
@@ -573,7 +615,13 @@ class MainWindow(QMainWindow):
             return
         config_mod.save_fan_curve(
             self.fan_curve_enabled_checkbox.isChecked(), points,
-            min_change_raw=getattr(self, "_fan_curve_min_change", 3),
+            min_change_raw=self.fan_curve_min_change_spin.value(),
+        )
+        config_mod.save_fan_reminder(
+            self.fan_reminder_enabled_checkbox.isChecked(),
+            temp_c=self.fan_reminder_temp_spin.value(),
+            min_rpm=self.fan_reminder_min_rpm_spin.value(),
+            cooldown_s=self.fan_reminder_cooldown_spin.value(),
         )
         self._load_fan_curve()  # sortiert neu geladen anzeigen
         self.statusBar().showMessage(i18n.t("gui.fan_curve.save_done"), 5000)
@@ -751,10 +799,9 @@ class MainWindow(QMainWindow):
         self.lbl_auto_warning.setVisible(active)
 
     def _toggle_auto(self):
-        if self._auto_active:
-            service_control.stop()
-        else:
-            service_control.start()
+        ok = service_control.stop() if self._auto_active else service_control.start()
+        if not ok:
+            self.statusBar().showMessage(i18n.t("gui.auto.toggle_error"), 5000)
         self._poll_service()
 
     # ------------------------------------------------------------ Update-Check

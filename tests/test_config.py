@@ -167,5 +167,32 @@ class TestSaveFanCurve(ConfigTestCase):
         self.assertEqual(cfg["auto"]["fan_curve"]["points"], [{"temp_c": 60, "raw": 40}])
 
 
+class TestSaveFanReminder(ConfigTestCase):
+    def test_round_trip(self):
+        config_mod.save_fan_reminder(True, temp_c=80, min_rpm=1200, cooldown_s=120, path=self.path)
+        reminder = self.load()["auto"]["fan_reminder"]
+        self.assertTrue(reminder["enabled"])
+        self.assertEqual(reminder["temp_c"], 80)
+        self.assertEqual(reminder["min_rpm"], 1200)
+        self.assertEqual(reminder["cooldown_s"], 120)
+
+    def test_leaves_other_sections_untouched(self):
+        self.write('[general]\nlanguage = "de"\n\n[auto]\npoll_interval_s = 7\n\n'
+                   "[auto.fan_curve]\nenabled = true\nmin_change_raw = 9\npoints = []\n")
+        config_mod.save_fan_reminder(True, 80, 1200, 120, path=self.path)
+        cfg = self.load()
+        self.assertEqual(cfg["general"]["language"], "de")
+        self.assertEqual(cfg["auto"]["poll_interval_s"], 7)
+        self.assertTrue(cfg["auto"]["fan_curve"]["enabled"])
+        self.assertEqual(cfg["auto"]["fan_curve"]["min_change_raw"], 9)
+        self.assertTrue(cfg["auto"]["fan_reminder"]["enabled"])
+
+    def test_repeated_saves_do_not_duplicate_block(self):
+        for temp_c in (70, 75, 80):
+            config_mod.save_fan_reminder(True, temp_c, 1000, 60, path=self.path)
+        self.assertEqual(self.read().count("[auto.fan_reminder]"), 1)
+        self.assertEqual(self.load()["auto"]["fan_reminder"]["temp_c"], 80)
+
+
 if __name__ == "__main__":
     unittest.main()
