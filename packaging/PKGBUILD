@@ -8,7 +8,7 @@
 #   makepkg --printsrcinfo > .SRCINFO
 
 pkgname=llano-v12ultra-ctrl
-pkgver=0.1.1
+pkgver=0.1.2
 pkgrel=1
 pkgdesc="Native Linux control tool for the llano V12 Ultra USB-HID cooling pad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6 GUI"
 arch=('any')
@@ -18,7 +18,7 @@ depends=('python' 'python-pyqt6')
 optdepends=('python-plyer: desktop notifications for the fan-reminder auto-mode feature')
 makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/Quahuay/llano-v12ultra-ctrl/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('ca6230f67af533b22b7873fe13a32ec00e45ea63016fdea2f96741c9fc6fada2')
+sha256sums=('SKIP')  # wird direkt nach dem Tag durch die echte Summe ersetzt
 
 build() {
     cd "$pkgname-$pkgver"
