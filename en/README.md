@@ -158,7 +158,7 @@ sudo usermod -aG plugdev "$USER"   # log out and back in afterwards
 
 ### Arch Linux (self-compile)
 
-No AUR account needed - just `makepkg` directly from the source repo:
+No AUR account needed, just `makepkg` directly from the source repo:
 
 ```bash
 sudo pacman -S --needed base-devel python-build python-installer python-wheel python-pyqt6
@@ -260,8 +260,8 @@ The history log stays config-file-only, there's no GUI form for it.
 configured `points` (`temp_c`/`raw` pairs) onto a fan speed raw value. `min_change_raw` prevents
 constantly re-adjusting on small temperature fluctuations, since it only writes when the target
 value changes by at least this much. Only takes effect while `auto` is running. The GUI form just
-saves the configuration - a running `auto` daemon (CLI or the systemd/schtasks background service)
-picks up the change on its own within one `poll_interval_s` (no restart needed, since v0.1.3).
+saves the configuration. A running `auto` daemon (CLI or the systemd/schtasks background service)
+picks up the change on its own within one `poll_interval_s`; no restart needed, since v0.1.3.
 
 **Fan reminder** (`[auto.fan_reminder]`): sends a desktop notification (`notify-send`) when the CPU
 temperature reaches `temp_c` but the measured speed stays below `min_rpm`. `cooldown_s` prevents
@@ -288,7 +288,7 @@ Feedback from Windows users, especially with LibreHardwareMonitor running, is we
 
 | Format | Status | Notes |
 |---|---|---|
-| `.msi` (Windows, `packaging/msi/`) | OK | Built via GitHub Actions CI (windows-latest, Python 3.12, cx_Freeze). Live-tested on real Windows 10 hardware (`status`/`fan-speed`/CLI functional, device not found is correct - pad was not connected during the remote test). |
+| `.msi` (Windows, `packaging/msi/`) | OK | Built via GitHub Actions CI (windows-latest, Python 3.12, cx_Freeze). Live-tested on real Windows 10 hardware (`status`/`fan-speed`/CLI functional; device not found is correct, since the pad wasn't connected during the remote test). |
 | `.deb` (`packaging/deb/`) | OK | Built via CI (fpm), verified end-to-end. |
 | Arch `PKGBUILD` (`packaging/PKGBUILD`) | OK | Built via CI (makepkg in archlinux container), verified end-to-end. Self-compile on your own machine: see [Arch Instructions](#arch-linux-self-compile). |
 | AppImage (`packaging/appimage/`) | OK | Built via CI (appimagetool). An .AppImage for all Linux distros without their own package. |

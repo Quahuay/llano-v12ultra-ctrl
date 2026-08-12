@@ -251,9 +251,9 @@ Config-Datei-Einstellung, dafür gibt es kein GUI-Formular.
 zwischen konfigurierten `points` (`temp_c`/`raw`-Paare) auf einen Lüfterdrehzahl-Rohwert ab.
 `min_change_raw` verhindert ständiges Nachregeln bei kleinen Temperaturschwankungen, da nur
 geschrieben wird, wenn sich der Zielwert um mindestens so viel ändert. Wirkt nur, während `auto`
-läuft. Das GUI-Formular speichert nur die Konfiguration - ein laufender `auto`-Daemon (CLI oder der
+läuft. Das GUI-Formular speichert nur die Konfiguration. Ein laufender `auto`-Daemon (CLI oder der
 systemd-/schtasks-Hintergrunddienst) übernimmt die Änderung von selbst innerhalb eines
-`poll_interval_s` (kein Neustart nötig, seit v0.1.3).
+`poll_interval_s`; kein Neustart nötig, seit v0.1.3.
 
 **Lüfter-Erinnerung** (`[auto.fan_reminder]`): schickt eine Desktop-Benachrichtigung
 (`notify-send`), wenn die CPU-Temperatur `temp_c` erreicht, die gemessene Drehzahl aber unter
@@ -280,7 +280,7 @@ willkommen (siehe [Beitragen](#beitragen)).
 
 | Format | Status | Anmerkungen |
 |---|---|---|
-| `.msi` (Windows, `packaging/msi/`) | OK | Gebaut per GitHub-Actions-CI (windows-latest, Python 3.12, cx_Freeze). Live getestet auf echter Windows-10-Hardware (`status`/`fan-speed`/CLI funktionieren, "Gerät nicht gefunden" ist korrekt - das Pad war beim Remote-Test nicht angeschlossen). |
+| `.msi` (Windows, `packaging/msi/`) | OK | Gebaut per GitHub-Actions-CI (windows-latest, Python 3.12, cx_Freeze). Live getestet auf echter Windows-10-Hardware (`status`/`fan-speed`/CLI funktionieren; "Gerät nicht gefunden" ist korrekt, da das Pad beim Remote-Test nicht angeschlossen war). |
 | `.deb` (`packaging/deb/`) | OK | Gebaut per CI (fpm), Ende-zu-Ende verifiziert. |
 | Arch-`PKGBUILD` (`packaging/PKGBUILD`) | OK | Gebaut per CI (makepkg im archlinux-Container), Ende-zu-Ende verifiziert. Selbst kompilieren: siehe [`packaging/PKGBUILD`](../packaging/PKGBUILD)/[`packaging/AUR.md`](../packaging/AUR.md). |
 | AppImage (`packaging/appimage/`) | OK | Gebaut per CI (appimagetool). Eine .AppImage für alle Linux-Distros ohne eigenes Paket. |
@@ -312,7 +312,7 @@ Seiten aufgeteilt, gibt es auch im [Projekt-Wiki](https://github.com/Quahuay/lla
 ## Roadmap
 
 [ROADMAP.md](ROADMAP.md) beschreibt, was als Nächstes kommt: v0.1.3 verdrahtet bereits
-alles, was das Hardware-Protokoll hergibt — die Roadmap holt also nichts an der Hardware nach,
+alles, was das Hardware-Protokoll hergibt. Die Roadmap holt also nichts an der Hardware nach,
 sondern beschreibt, was sich sinnvoll darauf aufbauen lässt. GitHub Issues/PRs und die passenden
 [Milestones](https://github.com/Quahuay/llano-v12ultra-ctrl/milestones) sind der Ort, wo das
 verfeinert wird.
