@@ -1,6 +1,6 @@
 # llano-v12ultra-ctrl
 
-*[English version](README.md)*
+*[English version](../en/README.md)*
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
@@ -72,10 +72,10 @@ ihren jeweiligen Inhabern.
 - **Leiser Update-Check** (abschaltbar): einmal alle 24h eine Prüfung gegen die GitHub-Releases-API
   im Hintergrund. Niemals ein stiller Self-Updater, nur ein Hinweis plus Link (oder ein Hinweis
   "Update über den Paketmanager", falls per `.deb`/Arch installiert). Siehe `[general]
-  update_check` in [`config/config.example.toml`](config/config.example.toml).
+  update_check` in [`config/config.example.toml`](../config/config.example.toml).
 - Keine externen HID-Bibliotheken nötig: direkte `HIDIOCGFEATURE`/`HIDIOCSFEATURE`-ioctls auf
   `/dev/hidraw*`
-- Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](src/llano_v12ultra_ctrl/protocol.py)),
+- Vollständig dokumentiertes HID-Protokoll (siehe [`protocol.py`](../src/llano_v12ultra_ctrl/protocol.py)),
   inklusive Diagnose-Befehl für den rohen 64-Byte Input-Report (`llano-v12ultra-ctrl raw-input`)
 
 ## Hardware-Hintergrund
@@ -88,9 +88,9 @@ Maximum aber stehen; nur die Anzeige rechnet ohne Begrenzung weiter. Das physisc
 funktioniert weiterhin parallel als manuelle Override-Möglichkeit.
 
 Lüfterdrehzahl und Licht sind zwei komplett getrennte HID-Kommandos (siehe
-[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) für das vollständige Byte-Layout). Wie das
+[`protocol.py`](../src/llano_v12ultra_ctrl/protocol.py) für das vollständige Byte-Layout). Wie das
 Fan-Kommando gefunden wurde, inklusive aller Sackgassen unterwegs, steht in
-[HISTORY.md](HISTORY.md).
+[HISTORY.md](../en/HISTORY.md).
 
 Der Automatikmodus (siehe unten) kann optional auch die Lüfterdrehzahl temperaturbasiert regeln
 (Lüfterkurve, seit v0.1.3 standardmäßig aktiv). Siehe
@@ -107,7 +107,7 @@ getaggt ist. Passenden Weg für die eigene Plattform wählen:
 |---|---|
 | Windows | `.msi` von [Releases](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) herunterladen und ausführen. Bringt eigenes Python, PyQt6 und `hidapi.dll` mit, keine separate Python-Installation nötig. |
 | Debian/Ubuntu (apt-basiert) | `.deb` von Releases herunterladen, dann `sudo apt install ./llano-v12ultra-ctrl_*.deb` |
-| Arch-basiert | Selbst bauen aus [`packaging/PKGBUILD`](packaging/PKGBUILD), siehe [`packaging/AUR.md`](packaging/AUR.md). Ein AUR-Paket ist geplant, aber noch nicht veröffentlicht (Status: TBD). |
+| Arch-basiert | Selbst bauen aus [`packaging/PKGBUILD`](../packaging/PKGBUILD), siehe [`packaging/AUR.md`](../packaging/AUR.md). Ein AUR-Paket ist geplant, aber noch nicht veröffentlicht (Status: TBD). |
 | Andere Linux-Distros | `.AppImage` von Releases herunterladen, `chmod +x`, direkt ausführen. Keine Installation nötig. Startet standardmäßig die GUI; mit einem CLI-Unterbefehl (z.B. `./llano-v12ultra-ctrl-*.AppImage status`) stattdessen die CLI. |
 
 `.deb`- und Arch-Pakete brauchen trotzdem noch den udev-Regel-Schritt unten. Bei `.deb` erledigt
@@ -214,7 +214,7 @@ llano-v12ultra-ctrl auto
 
 Schaltet die Pad-Farbe je nach CPU-Temperatur um (grün, dann orange, dann rot), mit optionalem
 GPU-Temperatur-Alarm (lila/breathing). Siehe Kommentare in
-[`config/config.example.toml`](config/config.example.toml). Für Dauerbetrieb als
+[`config/config.example.toml`](../config/config.example.toml). Für Dauerbetrieb als
 systemd-User-Service:
 
 ```bash
@@ -241,7 +241,7 @@ Alle drei Optionen leben im `auto`-Modus (siehe oben). Seit v0.1.3 ist die Lüft
 standardmäßig aktiv (siehe [Hardware-Hintergrund](#hardware-hintergrund)); Lüfter-Erinnerung und
 Verlaufsprotokoll bleiben standardmäßig deaktiviert. Konfiguration in
 `~/.config/llano-v12ultra-ctrl/config.toml`, siehe kommentierte Beispiele in
-[`config/config.example.toml`](config/config.example.toml), oder in der GUI im Bereich
+[`config/config.example.toml`](../config/config.example.toml), oder in der GUI im Bereich
 "Lüfterkurve (Automatikmodus)": Punkte per Maus ziehen/hinzufügen/entfernen, `min_change_raw` und
 die vollständige Lüfter-Erinnerung (Aktivieren/Temperatur/Drehzahl/Abklingzeit) unter "Erweiterte
 Einstellungen" (ebenfalls neu seit v0.1.3). Das Verlaufsprotokoll bleibt reine
@@ -282,17 +282,17 @@ willkommen (siehe [Beitragen](#beitragen)).
 |---|---|---|
 | `.msi` (Windows, `packaging/msi/`) | OK | Gebaut per GitHub-Actions-CI (windows-latest, Python 3.12, cx_Freeze). Live getestet auf echter Windows-10-Hardware (`status`/`fan-speed`/CLI funktionieren, "Gerät nicht gefunden" ist korrekt - das Pad war beim Remote-Test nicht angeschlossen). |
 | `.deb` (`packaging/deb/`) | OK | Gebaut per CI (fpm), Ende-zu-Ende verifiziert. |
-| Arch-`PKGBUILD` (`packaging/PKGBUILD`) | OK | Gebaut per CI (makepkg im archlinux-Container), Ende-zu-Ende verifiziert. Selbst kompilieren: siehe [`packaging/PKGBUILD`](packaging/PKGBUILD)/[`packaging/AUR.md`](packaging/AUR.md). |
+| Arch-`PKGBUILD` (`packaging/PKGBUILD`) | OK | Gebaut per CI (makepkg im archlinux-Container), Ende-zu-Ende verifiziert. Selbst kompilieren: siehe [`packaging/PKGBUILD`](../packaging/PKGBUILD)/[`packaging/AUR.md`](../packaging/AUR.md). |
 | AppImage (`packaging/appimage/`) | OK | Gebaut per CI (appimagetool). Eine .AppImage für alle Linux-Distros ohne eigenes Paket. |
-| AUR-Veröffentlichung | TBD | Noch nicht eingereicht. Vollständige, eigenständige Anleitung in [`packaging/AUR.md`](packaging/AUR.md). Selbst kompilieren ohne AUR: siehe oben. |
+| AUR-Veröffentlichung | TBD | Noch nicht eingereicht. Vollständige, eigenständige Anleitung in [`packaging/AUR.md`](../packaging/AUR.md). Selbst kompilieren ohne AUR: siehe oben. |
 
-Alle vier Formate werden im [`release.yml`](.github/workflows/release.yml)
+Alle vier Formate werden im [`release.yml`](../.github/workflows/release.yml)
 GitHub-Actions-Workflow automatisch bei jedem Push eines `v*`-Tags gebaut und dem jeweiligen
 [GitHub Release](https://github.com/Quahuay/llano-v12ultra-ctrl/releases) angehängt.
 
 ## Protokoll-Dokumentation
 
-**[PROTOCOL.md](PROTOCOL.md) ist die vollständige Geräte-Referenz** (auf Englisch): jedes Kommando
+**[PROTOCOL.md](../en/PROTOCOL.md) ist die vollständige Geräte-Referenz** (auf Englisch): jedes Kommando
 Byte für Byte, die Prüfsumme, das Telemetrie-Layout, Wertebereiche, beide Transportwege (Linux-ioctl
 und Windows-hidapi) sowie lauffähige Minimalbeispiele. So geschrieben, dass man das Pad aus eigenem
 Code in beliebiger Sprache ansprechen kann, ohne dieses Projekt zu benutzen. Sie listet außerdem
@@ -300,18 +300,18 @@ auf, was getestet wurde und *nicht* funktioniert, damit niemand dieselbe Suche w
 
 Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
 Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
-Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py). Der
+Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](../src/llano_v12ultra_ctrl/protocol.py). Der
 komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat exakt drei Reports
 und keine versteckten weiteren Report-IDs, nämlich 64-Byte Input, 64-Byte Output und 8-Byte
 Feature (vollständig reverse-engineered, inklusive des separaten Fan-Speed-Kommandos). Wie diese
-Herleitung entstanden ist, steht in [HISTORY.md](HISTORY.md). `llano-v12ultra-ctrl raw-input`
+Herleitung entstanden ist, steht in [HISTORY.md](../en/HISTORY.md). `llano-v12ultra-ctrl raw-input`
 erlaubt weiteres manuelles Beobachten des Input-Reports. Dieselbe Geschichte, in navigierbare
 Seiten aufgeteilt, gibt es auch im [Projekt-Wiki](https://github.com/Quahuay/llano-v12ultra-ctrl/wiki)
 (auf Englisch).
 
 ## Roadmap
 
-[ROADMAP.de.md](ROADMAP.de.md) beschreibt, was als Nächstes kommt: v0.1.3 verdrahtet bereits
+[ROADMAP.md](ROADMAP.md) beschreibt, was als Nächstes kommt: v0.1.3 verdrahtet bereits
 alles, was das Hardware-Protokoll hergibt — die Roadmap holt also nichts an der Hardware nach,
 sondern beschreibt, was sich sinnvoll darauf aufbauen lässt. GitHub Issues/PRs und die passenden
 [Milestones](https://github.com/Quahuay/llano-v12ultra-ctrl/milestones) sind der Ort, wo das
@@ -336,7 +336,7 @@ nicht dieselbe Priorität wie der Linux-Kernbetrieb.
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE).
+MIT, siehe [LICENSE](../LICENSE).
 
 ---
 

@@ -1,10 +1,10 @@
 # Roadmap
 
-*[English version](ROADMAP.md)*
+*[English version](../en/ROADMAP.md)*
 
 Stand v0.1.3: Jede Fähigkeit, die das Hardware-Protokoll tatsächlich hergibt (Farbe, Effekt,
 Effekt-Geschwindigkeit, Helligkeit, Lüfterdrehzahl, Power), ist bereits in CLI *und* GUI
-verdrahtet — siehe [PROTOCOL.md](PROTOCOL.md) für die vollständige Byte-Referenz und dessen
+verdrahtet — siehe [PROTOCOL.md](../en/PROTOCOL.md) für die vollständige Byte-Referenz und dessen
 Abschnitt "Unsupported operations" für das, was am Gerät ausprobiert wurde und nicht geht (freie
 RGB-Werte, einzeln adressierbare LEDs, Display-Content-Manipulation). Diese Roadmap holt also
 nichts an der Hardware nach, sondern beschreibt, was sich sinnvoll auf einem fertigen
@@ -13,7 +13,7 @@ Protokoll-Mapping aufbauen lässt.
 Nur der nächste Meilenstein bekommt eine Versionsnummer. Alles danach ist bewusst nach Thema statt
 nach Release gruppiert — das ist ein junges Solo-Projekt, eine datierte Mehr-Versionen-Roadmap
 würde sich selbst gegenüber der Öffentlichkeit überversprechen. Siehe
-[Beitragen](README.de.md#beitragen), wie man mitreden kann: GitHub Issues und PRs sind der Weg,
+[Beitragen](README.md#beitragen), wie man mitreden kann: GitHub Issues und PRs sind der Weg,
 wie Punkte hier aufgegriffen, verfeinert oder umpriorisiert werden. Passende
 [GitHub Milestones](https://github.com/Quahuay/llano-v12ultra-ctrl/milestones) existieren zu den
 Abschnitten unten, damit sich Issues daran einhängen lassen.
@@ -42,7 +42,7 @@ Abschnitten unten, damit sich Issues daran einhängen lassen.
   erzeugt dafür bereits als Zwischenschritt einen eigenständigen `build/exe.win-*/`-Ordner, bevor
   er zur MSI verpackt wird (`packaging/msi/cx_freeze_setup.py`); diesen Ordner zusätzlich als ZIP
   anzubieten braucht kein neues Build-Tooling, nur einen weiteren Schritt im bereits bestehenden
-  `msi`-Job in [`release.yml`](.github/workflows/release.yml).
+  `msi`-Job in [`release.yml`](../.github/workflows/release.yml).
 
 ## Später (ohne Versionsnummer)
 
@@ -71,26 +71,26 @@ Baut auf `--json` oben auf, statt direkt dahin vorzugreifen.
 Keine neuen Features — offene Punkte aus dem vorherigen Zyklus, die noch offen sind:
 - **AUR-Einreichung** — braucht das AUR-Konto des Maintainers, kein Code-Task. Selbst kompilieren
   via `makepkg` funktioniert bereits und ist dokumentiert
-  ([`packaging/AUR.md`](packaging/AUR.md)).
+  ([`packaging/AUR.md`](../packaging/AUR.md)).
 - **Windows-Automatikmodus Ende-zu-Ende-Verifikation** — `temp.py` bricht korrekt mit einer
   Fehlermeldung ab, wenn [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
   nicht läuft, aber der volle temperaturgesteuerte Regelkreis mit echten Werten ist damit noch
-  nicht verifiziert (siehe [Windows-Status](README.de.md#windows-status)). Braucht eine
+  nicht verifiziert (siehe [Windows-Status](README.md#windows-status)). Braucht eine
   Windows-Maschine mit tatsächlich laufendem LibreHardwareMonitor, also Feedback aus der
-  Community — siehe [Beitragen](README.de.md#beitragen).
+  Community — siehe [Beitragen](README.md#beitragen).
 
 ## Explizit nicht geplant
 
-- **macOS** — nicht geplant, siehe [README](README.de.md#beitragen): das Pad ist für Mac-Hardware
+- **macOS** — nicht geplant, siehe [README](README.md#beitragen): das Pad ist für Mac-Hardware
   nicht geeignet.
 - **Mehrgeräte-Support** (mehrere angeschlossene Pads unterscheiden, oder andere llano-V12-
   Hardware-Varianten jenseits der Ultra unterstützen) — nicht umsetzbar ohne diese zusätzliche
   Hardware vor Ort zum Testen. Würde die Geräteauswahl-Logik in `device.py` auf beiden Plattformen
   und das Config-Schema anfassen (aktuell existiert nirgends ein Geräte-Identifier) — also schon
   vor der Hardware-Zugriffsfrage eine übergreifende Änderung. Feedback zu anderen Varianten ist
-  weiterhin willkommen (siehe [Beitragen](README.de.md#beitragen)) — ausgeklammert aus der aktiven
+  weiterhin willkommen (siehe [Beitragen](README.md#beitragen)) — ausgeklammert aus der aktiven
   Planung, nicht aus dem Interesse.
 - **Freie/beliebige RGB-Werte, einzeln adressierbare LEDs, Display-Content-Manipulation** — keine
   Software-Lücke, das Gerät selbst unterstützt das nicht; siehe PROTOCOL.md's
-  ["Unsupported operations"](PROTOCOL.md) und HISTORY.md's "Checked afterwards, but not pursued
+  ["Unsupported operations"](../en/PROTOCOL.md) und HISTORY.md's "Checked afterwards, but not pursued
   further" für das, was tatsächlich probiert wurde.

@@ -3,7 +3,7 @@
 This file summarizes how the protocol for `llano-v12ultra-ctrl` was reverse-engineered, including
 the dead ends along the way. It's not needed for plain usage, see [README.md](README.md) instead.
 The full byte-by-byte derivation with all measurement series lives as an addendum docstring in
-[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py).
+[`protocol.py`](../src/llano_v12ultra_ctrl/protocol.py).
 
 ## Starting point
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-*[Deutsche Version](ROADMAP.de.md)*
+*[Deutsche Version](../de/ROADMAP.md)*
 
 As of v0.1.3, every dimension the hardware protocol actually exposes (color, effect, effect
 speed, brightness, fan speed, power) is already wired into both the CLI and the GUI - see
@@ -40,7 +40,7 @@ sections below so issues can attach to them.
   produces a self-contained `build/exe.win-*/` folder as an intermediate step before wrapping it
   into the MSI (`packaging/msi/cx_freeze_setup.py`); zipping that folder as an additional release
   asset needs no new build tooling, just one more step in the existing `msi` job in
-  [`release.yml`](.github/workflows/release.yml).
+  [`release.yml`](../.github/workflows/release.yml).
 
 ## Later (no version attached)
 

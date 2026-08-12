@@ -291,7 +291,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="374a", ATTR{idProduct}=="b101", MODE="0660", 
 KERNEL=="hidraw*", ATTRS{idVendor}=="374a", ATTRS{idProduct}=="b101", MODE="0660", GROUP="plugdev", TAG+="uaccess"
 ```
 
-Reference copy: [`packaging/70-llano-v12ultra-ctrl.rules`](packaging/70-llano-v12ultra-ctrl.rules).
+Reference copy: [`packaging/70-llano-v12ultra-ctrl.rules`](../packaging/70-llano-v12ultra-ctrl.rules).
 The rule requires the accessing user to be a member of `plugdev`. Rules take effect after
 `udevadm control --reload-rules` and `udevadm trigger`.
 
@@ -342,7 +342,7 @@ sequenceDiagram
 ## Usage examples
 
 The examples are byte-equivalent to the reference implementation in
-[`protocol.py`](src/llano_v12ultra_ctrl/protocol.py) and carry no dependency on this project.
+[`protocol.py`](../src/llano_v12ultra_ctrl/protocol.py) and carry no dependency on this project.
 
 ### Report construction, both platforms
 
