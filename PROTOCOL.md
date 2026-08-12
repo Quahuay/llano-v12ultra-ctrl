@@ -104,23 +104,25 @@ flowchart TD
     B0 -->|"0x01"| F["Fan speed command"]
     B0 -->|"0x80"| H["Heartbeat"]
 
-    L --> LF["byte2 master switch<br/>byte3 effect / light off<br/>byte4 color<br/>byte5 effect speed<br/>byte6 brightness"]
+    L --> LF["byte1 fan speed raw 1-100<br/>byte2 master switch<br/>byte3 effect / light off<br/>byte4 color<br/>byte5 effect speed<br/>byte6 brightness"]
     F --> FF["byte1 fan speed raw 1-100<br/>byte2..byte6 fixed constants"]
     H --> HF["Emitted by the manufacturer app.<br/>Not required for device control."]
 
-    LF --> N1["Fan speed unaffected"]
+    LF --> N1["Writes fan speed as a side effect.<br/>byte1 must carry the intended value."]
     FF --> N2["Light state unaffected"]
 ```
 
-Light and fan speed are independent commands. A light command never changes fan speed, and a fan
-speed command never changes light state.
+A fan speed command never changes light state. **A light command does change fan speed**: `byte1`
+is the fan speed field in both commands. Implementations that issue a light command must supply
+the intended fan speed in `byte1`, normally the current value read beforehand. See
+[Fan speed in the light command](#fan-speed-in-the-light-command).
 
 ## Command 0x00: light
 
 | Body byte | Buffer offset | Field | Accepted values |
 |---|---|---|---|
 | `byte0` | 1 | Command selector | `0x00` |
-| `byte1` | 2 | No effect on fan speed | `0x00` |
+| `byte1` | 2 | **Fan speed.** See [Fan speed in the light command](#fan-speed-in-the-light-command). | `0x01`-`0x64` |
 | `byte2` | 3 | Master switch | `0x00` = on, non-zero = off |
 | `byte3` | 4 | Effect, or light off | `0x00`-`0x04`, or `>= 0x80` |
 | `byte4` | 5 | Color | `0x00`-`0x04` |
@@ -156,6 +158,24 @@ Names follow the manufacturer application. Each value is accepted and echoed bac
 
 `0` is fastest, `3` is slowest. The manufacturer application emits only 0 through 3. Values above
 3 are accepted but do not vary monotonically.
+
+### Fan speed in the light command
+
+`byte1` of the light command is the same field that command `0x01` writes and that a read returns
+at offset 2. The device adopts the value written there.
+
+| Value in `byte1` | Effect on fan speed |
+|---|---|
+| `0x00` | Fan speed is set to 0 |
+| `0x01`-`0x64` | Fan speed is set to that value |
+
+This applies to every light command, including a command that only changes color. An
+implementation that leaves `byte1` at 0 therefore stops the fan on every color change.
+
+Correct usage: read the feature report, take offset 2, and write it back in `byte1` unless a new
+fan speed is intended.
+
+Command `0x01` remains the dedicated way to change fan speed without touching light state.
 
 ### Switch-off semantics
 
@@ -335,11 +355,13 @@ def build_fan_report(raw):
     body7 = [0x01, raw, 0x00, 0x00, 0x02, 0x00, 0xFF]
     return bytes([0x00] + body7 + [checksum(body7)])
 
-def build_light_report(color, effect=0, speed=0, brightness=0xFF,
+def build_light_report(color, fan_raw, effect=0, speed=0, brightness=0xFF,
                        light_on=True, power=True):
+    """fan_raw: the fan speed to apply. Pass the value currently reported at
+    offset 2 to leave the fan unchanged. Passing 0 stops the fan."""
     body7 = [
         0x00,                                # command selector
-        0x00,                                # no effect on fan speed
+        fan_raw,                             # fan speed, see the note above
         0x00 if power else 0x01,             # master switch
         0x80 if not light_on else effect,    # effect, or light off
         color,
@@ -370,15 +392,22 @@ HIDIOCGFEATURE = _ioc(3, "H", 0x07, 9)
 
 fd = os.open(find_hidraw(), os.O_RDWR)
 
-# Write: fan speed 50, then solid green
+def read_state(fd):
+    buf = ctypes.create_string_buffer(9)
+    buf[0] = b"\x00"
+    fcntl.ioctl(fd, HIDIOCGFEATURE, buf, True)
+    return buf.raw
+
+# Write: fan speed 50
 fcntl.ioctl(fd, HIDIOCSFEATURE, ctypes.create_string_buffer(build_fan_report(50), 9), True)
-fcntl.ioctl(fd, HIDIOCSFEATURE, ctypes.create_string_buffer(build_light_report(color=2), 9), True)
+
+# Write: solid green, carrying the current fan speed so the fan keeps running
+current_fan = read_state(fd)[2]
+light = build_light_report(color=2, fan_raw=current_fan)
+fcntl.ioctl(fd, HIDIOCSFEATURE, ctypes.create_string_buffer(light, 9), True)
 
 # Read: current state
-buf = ctypes.create_string_buffer(9)
-buf[0] = b"\x00"
-fcntl.ioctl(fd, HIDIOCGFEATURE, buf, True)
-raw = buf.raw
+raw = read_state(fd)
 
 os.close(fd)
 ```
@@ -402,7 +431,10 @@ import hid
 
 dev = hid.Device(vid=0x374A, pid=0xB101)
 dev.send_feature_report(build_fan_report(50))
-dev.send_feature_report(build_light_report(color=2))
+
+current_fan = bytes(dev.get_feature_report(0x00, 9))[2]
+dev.send_feature_report(build_light_report(color=2, fan_raw=current_fan))
+
 raw = bytes(dev.get_feature_report(0x00, 9))
 ```
 
@@ -414,11 +446,11 @@ Properties that affect implementations, stated as measured.
 
 | Property | Detail |
 |---|---|
-| Fan speed telemetry is a measured value | Offset 2 reflects actual rotation, not a stored target. The motor requires spin-up and spin-down time, so the field does not reach a new target immediately after a write. Transient readings of `0` occur during that interval. |
-| Steady-state telemetry is stable | At a constant setting, 400 consecutive reads returned the identical value with no deviation. |
-| Single reads after a write are unreliable | A write followed by a delay and one single read returned `0` intermittently. Dense polling across 1190 reads spanning 0 to 6 seconds after a write showed no deviation. Implementations that must confirm a fan speed should poll rather than sample once. |
+| Offset 2 is stable | At a constant setting, 400 consecutive reads returned the identical value with no deviation, as did 1190 reads spanning 0 to 6 seconds after a write. Readings of `0` that are not explained by a light command carrying `byte1 = 0` were not observed once a concurrent writer was excluded. |
+| Concurrent writers corrupt measurements | Any second process issuing light commands changes fan speed through `byte1`. Measurements require exclusive access. |
+| The motor needs time to reach a new speed | Mechanical spin-up and spin-down are not instantaneous. Offset 2 changes immediately; the audible speed follows. |
 | The physical wheel remains active | The wheel is a parallel input and is not disabled by software control. Its position is reflected in the telemetry field. |
-| Light and fan are independent | See [Switch-off semantics](#switch-off-semantics). |
+| A light command writes fan speed | `byte1` is the fan speed field. A light command that leaves it at 0 stops the fan. See [Fan speed in the light command](#fan-speed-in-the-light-command). |
 | Writes are not acknowledged | Confirmation requires a read-back. See [Transaction sequence](#transaction-sequence). |
 | Disconnection surfaces as an I/O error | On Linux the ioctl raises `OSError` with `errno 19` (`ENODEV`). A device can disappear between two calls within the same operation, so both reads and writes require error handling. |
 
@@ -431,7 +463,6 @@ Tested and found not to work. Listed so implementations do not depend on them.
 
 | Operation | Result |
 |---|---|
-| Fan control through the light command | `byte1` of command `0x00` is ignored. Fan speed requires command `0x01`. |
 | Additional report IDs | The report descriptor was read in full and declares exactly three reports. |
 | Control through the 64-byte output report | All 64 byte positions were tested individually across the value range, along with all-zero and all-`0xFF` patterns. Writes produce a brief visible flicker and no persistent, controllable effect. |
 | Decoding the 64-byte input report | No content-dependent meaning identified. Observable through `llano-v12ultra-ctrl raw-input`. |
@@ -450,6 +481,8 @@ Tested and found not to work. Listed so implementations do not depend on them.
 | Master switch stops the unit | Verified | `byte2 = 0x01`, read-back confirmed, 2026-08-12 |
 | Fan speed scale reference points | Verified | raw 1, 48 and 100 against the device display |
 | Fan speed, all 100 raw values | Verified | Each value applied individually and confirmed audibly and on the display |
+| `byte1` of the light command sets fan speed | Verified | Fan set to 20/80/50 via command `0x01`, then a light command carrying `byte1` = 80/20/100. The reported speed followed `byte1` in every case, 2026-08-12 |
+| A light command with `byte1 = 0` stops the fan | Verified | Fan set to 50, then six consecutive light commands with `byte1 = 0`. Reported speed fell to 0 and stayed there, 2026-08-12 |
 | Fan telemetry stability | Verified | 400 consecutive steady-state reads, 1190 reads across post-write intervals, 2026-08-12 |
 | Report descriptor contents | Verified | Descriptor read from sysfs |
 | Windows transport | Verified | `status`, `light` and `fan-speed` against hardware on Windows 10 |

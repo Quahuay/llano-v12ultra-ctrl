@@ -21,8 +21,8 @@ on/off kill switch, including the checksum formula.
 
 The app shows a full RPM selection UI (AI Low/Medium/High modes, a custom fan curve, manual mode
 via the physical wheel). The obvious first approach was writing along an extra byte in the light
-report that was sometimes non-zero in real app captures. It turned out to be consistently
-ineffective:
+report that was sometimes non-zero in real app captures. At the time this was recorded as
+consistently ineffective:
 
 - An original USB capture of the real app contained over 1300 real SET_REPORT calls, but none of
   them a recognizably targeted fan speed write attempt.
@@ -52,6 +52,35 @@ the wrong command.
 Confirmed live, both on the Windows test machine and directly on the Linux device itself,
 individually tested across the entire value range (each of the 100 possible raw values on its own,
 roughly 25 RPM resolution per step).
+
+## Correction: the first approach was not wrong after all
+
+Measured on 2026-08-12, months after the above was written: **that extra byte in the light report
+is the fan speed field.** Writing a value there sets the fan speed, and writing zero stops the fan.
+The original conclusion was wrong.
+
+What went wrong at the time is worth recording, because it is a general trap. The early tests
+wrote that byte and then checked whether the fan changed. It did change, but every one of those
+tests ran with the auto-mode daemon active in the background, and that daemon issued its own light
+commands every few seconds with the byte left at zero. Each test write was undone within seconds
+by a process nobody was thinking about. The measurement was not of the device, it was of the
+device plus an unnoticed second writer.
+
+The finding resurfaced only because the same interference produced a symptom that could not be
+explained away: fan speed readings intermittently dropping to zero during unrelated work. Stopping
+the daemon and repeating the measurement made the effect disappear, which pointed straight at the
+real mechanism.
+
+Two lessons, both now reflected in the documentation:
+
+- A measurement against shared hardware is only valid with exclusive access. `PROTOCOL.md` states
+  this as a device property, because any implementation faces the same hazard.
+- "Tested and does not work" deserves the same scepticism as any other claim. It was recorded here
+  as settled fact and stood unchallenged for months.
+
+The practical consequence for this project was a real bug: every color change stopped the fan,
+which made the fan curve unusable in combination with the temperature indicator. Fixed by carrying
+the current fan speed in that byte on every light command.
 
 ## Checked afterwards, but not pursued further
 

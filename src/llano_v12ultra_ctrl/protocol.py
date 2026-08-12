@@ -463,12 +463,20 @@ der Checksumme, gleiche Position/Formel wie beim Licht-Kommando):
   byte7 = Checksumme (gleiche Formel wie beim Licht-Kommando)
 
 Das Licht-Kommando (build_report) nutzt zufällig ebenfalls byte0=0x00
-(BYTE0_CONST), aber mit byte4=Farbe(0-4) statt der festen 0x02-Kennung und
-byte1 dort komplett wirkungslos - genau DAS haben alle bisherigen Tests
-(NACHTRAG 1-7) über Jahre hinweg geschrieben. Byte0=0x01 wird vom
-Licht-Kommando nie verwendet und ist damit eindeutig/kollisionsfrei -
-`build_fan_report()` nutzt deshalb ausschließlich 0x01 für einmalige
-Set-Befehle.
+(BYTE0_CONST), aber mit byte4=Farbe(0-4) statt der festen 0x02-Kennung.
+Byte0=0x01 wird vom Licht-Kommando nie verwendet und ist damit
+eindeutig/kollisionsfrei - `build_fan_report()` nutzt deshalb ausschließlich
+0x01 für einmalige Set-Befehle.
+
+**KORREKTUR (2026-08-12):** An dieser Stelle stand, byte1 sei im
+Licht-Kommando "komplett wirkungslos". Das ist widerlegt. Byte1 IST dort das
+Drehzahlfeld und setzt die Drehzahl (Messung: Lüfter über das Fan-Kommando
+auf 20/80/50 gestellt, dann ein Licht-Kommando mit byte1=80/20/100 -
+die Drehzahl folgte jedes Mal byte1). Die Tests aus NACHTRAG 1-7 liefen
+allesamt mit aktivem Auto-Modus-Daemon im Hintergrund, der alle paar Sekunden
+eigene Licht-Kommandos mit byte1=0 schickte und jeden Testschreibvorgang
+binnen Sekunden wieder überschrieb. Gemessen wurde also nicht das Gerät,
+sondern Gerät plus unbemerkter Zweitschreiber. Siehe HISTORY.md.
 
 `set_fan_speed()` in device.py wurde auf `build_fan_report()` umgestellt.
 
@@ -483,8 +491,10 @@ Untersuchung **endgültig als funktionierend bestätigt** - plattformunabhängig
 über beide Betriebssysteme hinweg nachgewiesen (Protokoll gefunden unter
 Windows, Wirkung bestätigt sowohl unter Windows als auch nativ unter Linux
 über HIDIOCSFEATURE). Die frühere "nachweislich wirkungslos"-Einschätzung
-(NACHTRAG 1-7) war korrekt für das getestete (falsche) Kommando, aber falsch
-als Aussage über die Hardware selbst.
+(NACHTRAG 1-7) war in beiderlei Hinsicht falsch: sowohl als Aussage über die
+Hardware als auch über das damals getestete Kommando - byte1 im
+Licht-Kommando funktioniert, der Messaufbau war durch den mitlaufenden
+Daemon verfälscht (siehe Korrektur oben und NACHTRAG 11).
 
 NACHTRAG 9 (Auflösung und Wertebereich ausgelotet, 2026-08-10): Zwei
 Nachfolgetests direkt im Anschluss.
@@ -563,6 +573,39 @@ Messrauschen eines frei drehenden Lüfters). Nicht weiter verifiziert,
 aber plausibel und ändert nichts an der Kernaussage: Lesen und Schreiben
 funktionieren beide, exakt vorherzusagende U/min-Werte sollte man aber
 nicht erwarten.
+
+NACHTRAG 11 (byte1 im Licht-Kommando ist das Drehzahlfeld, 2026-08-12):
+Beim Verifizieren der Doku gegen die echte Hardware fielen sporadische
+0-Werte in `fan_speed_raw` auf. Zunächst als Motor-Anlaufzeit gedeutet
+(vgl. NACHTRAG 10), was sich als falsch herausstellte.
+
+Ursache: der Auto-Modus-Daemon lief mit und schickte bei jedem
+Temperatur-Schwellenwechsel ein Licht-Kommando mit byte1=0. Nach dem
+Stoppen des Daemons verschwanden die Aussetzer vollständig (400
+Lesevorgänge am Stück ohne jede Abweichung).
+
+Messung mit exklusivem Zugriff:
+
+- Drehzahl 50 gesetzt, dann sechs Licht-Kommandos mit byte1=0: Drehzahl
+  fällt auf 0 und bleibt dort.
+- Drehzahl 50 gesetzt, dann ein Licht-Kommando mit byte1=50: Drehzahl
+  bleibt 50. Gegengeprüft für 25/60/90.
+- Drehzahl über das Fan-Kommando auf 20/80/50, dann ein Licht-Kommando mit
+  byte1=80/20/100: die Drehzahl folgt jedes Mal byte1.
+
+byte1 SETZT die Drehzahl also, es erhält sie nicht nur. Damit ist die
+Aussage aus NACHTRAG 1-7 ("byte1 im Licht-Kommando wirkungslos") widerlegt;
+sie beruhte auf Messungen mit demselben unbemerkten Zweitschreiber.
+
+Folge für dieses Projekt: jeder Farbwechsel setzte die Drehzahl auf 0, was
+die Lüfterkurve im Automatikmodus unbrauchbar machte (der Daemon schreibt
+Licht bei jedem Schwellenwechsel). `set_light()`/`set_power()` in device.py
+lesen jetzt den aktuellen Wert und reichen ihn in byte1 durch; abgesichert
+durch tests/test_fan_preservation.py.
+
+Methodische Lehre, siehe HISTORY.md: Messungen gegen gemeinsam genutzte
+Hardware brauchen exklusiven Zugriff, und ein dokumentiertes "getestet,
+funktioniert nicht" verdient dieselbe Skepsis wie jede andere Behauptung.
 """
 
 REPORT_LEN = 9  # report_id + 7 body bytes + checksum
@@ -611,9 +654,17 @@ def build_report(color, effect=0, speed=0x00, light_on=True, brightness=0xFF, po
     power:      False schaltet die GESAMTE Einheit aus - Beleuchtung UND
                 Lüftermotor (schreibt byte2/kill_flag). Reiner Ein/Aus-
                 Schalter, keine Zwischenstufen.
-    byte1:      wird mitgeschickt (wie von der echten App beobachtet), hat
-                aber KEINE Wirkung auf die Lüftergeschwindigkeit - dafür gibt
-                es ein eigenes Kommando, siehe build_fan_report() (NACHTRAG 8).
+    byte1:      **die aktuelle Lüfterdrehzahl (raw 1-100), nicht 0.** Das
+                Feld ist dasselbe, das beim Lesen die Drehzahl liefert: das
+                Gerät übernimmt den hier geschriebenen Wert. Eine 0 setzt die
+                Drehzahl also auf 0 zurück, und zwar dauerhaft - ein reiner
+                Farbwechsel würde damit den Lüfter herunterregeln. Aufrufer
+                müssen den aktuellen Wert vorher lesen und hier durchreichen;
+                device.set_light()/set_power() tun das. Am Gerät verifiziert
+                (2026-08-12): byte1=0 -> Drehzahl fällt auf 0, byte1=<aktuell>
+                -> Drehzahl bleibt erhalten, geprüft für raw 25/50/60/90.
+                Zum *Setzen* einer neuen Drehzahl dient weiterhin das eigene
+                Fan-Kommando, siehe build_fan_report() (NACHTRAG 8).
     """
     effect_byte = EFFECT_OFF if not light_on else (effect & 0xFF)
     body7 = [

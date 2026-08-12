@@ -101,7 +101,13 @@ class _LinuxDevice:
 
     def set_light(self, color: int, effect: int = 0, speed: int = 0x00, light_on: bool = True, brightness: int = 0xFF, power: bool = True) -> protocol.Report:
         _validate_light_args(color, effect, speed, brightness)
-        report = protocol.build_report(color=color, effect=effect, speed=speed, light_on=light_on, brightness=brightness, power=power)
+        # byte1 traegt die Luefterdrehzahl. Wird hier 0 geschrieben, faellt der
+        # Luefter auf 0 - ein reiner Farbwechsel wuerde ihn herunterregeln.
+        # Deshalb den aktuellen Wert lesen und unveraendert durchreichen.
+        report = protocol.build_report(
+            color=color, effect=effect, speed=speed, light_on=light_on,
+            brightness=brightness, power=power, byte1=self.get_report().fan_speed_raw,
+        )
         buf = self._ctypes.create_string_buffer(report, protocol.REPORT_LEN)
         self._fcntl.ioctl(self._fd, self._hidiocsfeature(protocol.REPORT_LEN), buf, True)
         return self.get_report()
@@ -111,7 +117,7 @@ class _LinuxDevice:
         report = protocol.build_report(
             color=current.color, effect=current.effect_raw if current.light_on else 0,
             speed=current.speed, light_on=current.light_on, brightness=current.brightness,
-            power=power,
+            power=power, byte1=current.fan_speed_raw,  # Drehzahl erhalten, siehe set_light
         )
         buf = self._ctypes.create_string_buffer(report, protocol.REPORT_LEN)
         self._fcntl.ioctl(self._fd, self._hidiocsfeature(protocol.REPORT_LEN), buf, True)
@@ -120,11 +126,13 @@ class _LinuxDevice:
     def set_fan_speed(self, raw: int) -> protocol.Report:
         """Setzt die Lüfterdrehzahl über das eigene Fan-Kommando (siehe
         protocol.py NACHTRAG 8, build_fan_report) - per Live-USB-Capture der
-        echten App auf echtem Windows gefunden und vom Nutzer live bestätigt
-        (Drehzahl ändert sich hör-/sichtbar). Frühere Versuche schrieben
-        Byte 1 im LICHT-Kommando (BYTE0_CONST=0x00), was nachweislich
-        wirkungslos war, weil das Gerät dieses Byte dort schlicht ignoriert -
-        das eigentliche Fan-Kommando braucht ein eigenes byte0/byte4-Muster."""
+        echten App auf echtem Windows gefunden und live bestätigt.
+
+        Dieses Kommando ändert ausschließlich die Drehzahl und lässt den
+        Lichtzustand unangetastet. Byte 1 des LICHT-Kommandos setzt die
+        Drehzahl ebenfalls (am Gerät verifiziert 2026-08-12, siehe
+        build_report), taugt aber nicht als Ersatz: dort müsste man den
+        kompletten Lichtzustand mitschreiben."""
         if not 1 <= raw <= 100:
             raise ValueError("raw muss zwischen 1 und 100 liegen (siehe protocol.py fan_speed_raw-Bereich)")
         report = protocol.build_fan_report(raw)
@@ -194,7 +202,11 @@ class _WindowsDevice:
 
     def set_light(self, color: int, effect: int = 0, speed: int = 0x00, light_on: bool = True, brightness: int = 0xFF, power: bool = True) -> protocol.Report:
         _validate_light_args(color, effect, speed, brightness)
-        report = protocol.build_report(color=color, effect=effect, speed=speed, light_on=light_on, brightness=brightness, power=power)
+        # byte1 traegt die Luefterdrehzahl, siehe _LinuxDevice.set_light.
+        report = protocol.build_report(
+            color=color, effect=effect, speed=speed, light_on=light_on,
+            brightness=brightness, power=power, byte1=self.get_report().fan_speed_raw,
+        )
         self._dev.send_feature_report(report)
         return self.get_report()
 
@@ -203,7 +215,7 @@ class _WindowsDevice:
         report = protocol.build_report(
             color=current.color, effect=current.effect_raw if current.light_on else 0,
             speed=current.speed, light_on=current.light_on, brightness=current.brightness,
-            power=power,
+            power=power, byte1=current.fan_speed_raw,  # Drehzahl erhalten, siehe set_light
         )
         self._dev.send_feature_report(report)
         return self.get_report()
