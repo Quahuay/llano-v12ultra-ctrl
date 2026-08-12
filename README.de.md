@@ -41,6 +41,7 @@ ihren jeweiligen Inhabern.
 - [Windows-Status](#windows-status)
 - [Paket-Status](#paket-status)
 - [Protokoll-Dokumentation](#protokoll-dokumentation)
+- [Roadmap](#roadmap)
 - [Beitragen](#beitragen)
 - [Autoren](#autoren)
 - [Lizenz](#lizenz)
@@ -304,7 +305,17 @@ komplette HID-Report-Descriptor wurde ausgelesen und bestätigt: das Gerät hat 
 und keine versteckten weiteren Report-IDs, nämlich 64-Byte Input, 64-Byte Output und 8-Byte
 Feature (vollständig reverse-engineered, inklusive des separaten Fan-Speed-Kommandos). Wie diese
 Herleitung entstanden ist, steht in [HISTORY.md](HISTORY.md). `llano-v12ultra-ctrl raw-input`
-erlaubt weiteres manuelles Beobachten des Input-Reports.
+erlaubt weiteres manuelles Beobachten des Input-Reports. Dieselbe Geschichte, in navigierbare
+Seiten aufgeteilt, gibt es auch im [Projekt-Wiki](https://github.com/Quahuay/llano-v12ultra-ctrl/wiki)
+(auf Englisch).
+
+## Roadmap
+
+[ROADMAP.de.md](ROADMAP.de.md) beschreibt, was als Nächstes kommt: v0.1.3 verdrahtet bereits
+alles, was das Hardware-Protokoll hergibt — die Roadmap holt also nichts an der Hardware nach,
+sondern beschreibt, was sich sinnvoll darauf aufbauen lässt. GitHub Issues/PRs und die passenden
+[Milestones](https://github.com/Quahuay/llano-v12ultra-ctrl/milestones) sind der Ort, wo das
+verfeinert wird.
 
 ## Beitragen
 
