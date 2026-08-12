@@ -288,6 +288,12 @@ installiert wird.
 
 ## Protokoll-Dokumentation
 
+**[PROTOCOL.md](PROTOCOL.md) ist die vollständige Geräte-Referenz** (auf Englisch): jedes Kommando
+Byte für Byte, die Prüfsumme, das Telemetrie-Layout, Wertebereiche, beide Transportwege (Linux-ioctl
+und Windows-hidapi) sowie lauffähige Minimalbeispiele. So geschrieben, dass man das Pad aus eigenem
+Code in beliebiger Sprache ansprechen kann, ohne dieses Projekt zu benutzen. Sie listet außerdem
+auf, was getestet wurde und *nicht* funktioniert, damit niemand dieselbe Suche wiederholt.
+
 Die vollständige Herleitung des 9-Byte-HID-Feature-Reports (welches Byte was bedeutet, was
 Software-schreibbar vs. reines Telemetrie-Feld ist, Messreihen zu Grenzfällen) steht als
 Docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py). Der

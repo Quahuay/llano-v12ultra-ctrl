@@ -295,6 +295,12 @@ workflow on every `v*` tag push and are attached to the respective
 
 ## Protocol Documentation
 
+**[PROTOCOL.md](PROTOCOL.md) is the full device reference:** every command byte by byte, the
+checksum, the telemetry layout, value ranges, both transports (Linux ioctl and Windows hidapi),
+and runnable minimal examples. Written so you can talk to the pad from your own code in any
+language without using this project. It also lists what was tested and found *not* to work, so you
+do not repeat the search.
+
 The complete derivation of the 9-byte HID feature report (which byte means what, what is
 software-writable vs. a pure telemetry field, measurement series for edge cases) lives as a
 docstring in [`src/llano_v12ultra_ctrl/protocol.py`](src/llano_v12ultra_ctrl/protocol.py). The
