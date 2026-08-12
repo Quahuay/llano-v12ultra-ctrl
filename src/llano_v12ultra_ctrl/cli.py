@@ -184,91 +184,95 @@ def cmd_auto(args):
     gpu_alert_active = False
     last_reminder_ts = 0.0
     current_fan_raw = None
+    current_speed = None  # zuletzt geschriebene Effekt-Geschwindigkeit
     try:
         with device_mod.Device() as dev:
             while True:
+                # Der GESAMTE Zyklus liegt im try, nicht nur die Lesezugriffe:
+                # set_light/set_fan_speed können genauso ein OSError werfen,
+                # wenn das Pad mitten im Durchlauf abgezogen wird. Lag der
+                # Schreibpfad außerhalb, ist der Daemon dabei mit einem
+                # Traceback gestorben, statt es wie einen Lesefehler zu
+                # behandeln und beim Wiedereinstecken weiterzulaufen.
                 try:
                     t = temp_mod.read_temp_c(sensor_path)
                     gpu_t = temp_mod.read_gpu_temp_c() if gpu_enabled else None
                     report = dev.get_report()
+
+                    cpu_color, cpu_effect, cpu_speed = current_color, current_effect, 0
+                    active_temp = None
+                    if t is not None:
+                        cpu_color = thresholds[0]["color"]
+                        cpu_effect = thresholds[0].get("effect", 0)
+                        cpu_speed = thresholds[0].get("speed", 0)
+                        active_temp = thresholds[0]["temp_c"]
+                        for th in thresholds:
+                            limit = th["temp_c"]
+                            # Kühlt die CPU ab (aktuell aktive Schwelle liegt
+                            # oberhalb dieser Schwelle), verschiebe den Grenzwert
+                            # um die Hysterese nach unten.
+                            if current_temp is not None and th["temp_c"] <= current_temp:
+                                limit -= hysteresis
+                            if t >= limit:
+                                cpu_color = th["color"]
+                                cpu_effect = th.get("effect", 0)
+                                cpu_speed = th.get("speed", 0)
+                                active_temp = th["temp_c"]
+
+                    if gpu_enabled and gpu_t is not None:
+                        if not gpu_alert_active and gpu_t >= gpu_cfg["temp_c"]:
+                            gpu_alert_active = True
+                        elif gpu_alert_active and gpu_t < gpu_cfg["temp_c"] - gpu_cfg["hysteresis_c"]:
+                            gpu_alert_active = False
+
+                    # "whichever is hotter wins": GPU alert only kicks in when
+                    # active AND the GPU is at least as hot as the CPU -
+                    # otherwise the normal CPU color logic still wins.
+                    if gpu_alert_active and gpu_t is not None and (t is None or gpu_t >= t):
+                        target_color, target_effect, target_speed = gpu_cfg["color"], gpu_cfg["effect"], gpu_cfg.get("speed", 0)
+                    else:
+                        target_color, target_effect, target_speed = cpu_color, cpu_effect, cpu_speed
+
+                    if target_color is not None and (target_color, target_effect, target_speed) != (current_color, current_effect, current_speed):
+                        r = dev.set_light(color=target_color, effect=target_effect, speed=target_speed, power=True)
+                        ts = time.strftime("%H:%M:%S")
+                        gpu_info = f"  GPU={gpu_t:.1f}°C" if gpu_t is not None else ""
+                        cpu_info = f"{t:.1f}°C" if t is not None else "?"
+                        print(i18n.t(
+                            "cli.auto.color_change", ts=ts, cpu_info=cpu_info, gpu_info=gpu_info,
+                            color_name=r.color_name(), effect_name=r.effect_name(),
+                        ), flush=True)
+                        current_color, current_effect, current_speed = target_color, target_effect, target_speed
+                    if target_color is not None:
+                        current_temp = active_temp if t is not None else current_temp
+
+                    if fan_curve_enabled and t is not None:
+                        target_fan_raw = fan_curve_mod.raw_for_temp(curve_cfg["points"], t)
+                        if current_fan_raw is None or abs(target_fan_raw - current_fan_raw) >= curve_min_change:
+                            report = dev.set_fan_speed(target_fan_raw)
+                            ts = time.strftime("%H:%M:%S")
+                            print(i18n.t(
+                                "cli.auto.fan_curve_change", ts=ts, temp=t, raw=target_fan_raw, rpm=report.fan_rpm,
+                            ), flush=True)
+                            current_fan_raw = target_fan_raw
+
+                    # Reminder: CPU hot, but measured speed stays low - e.g.
+                    # useful while fan_curve (above) isn't enabled.
+                    if fan_reminder_enabled and t is not None and t >= fan_cfg["temp_c"] and report.fan_rpm < fan_cfg["min_rpm"]:
+                        now = time.time()
+                        if now - last_reminder_ts >= fan_cfg.get("cooldown_s", 300):
+                            notify_mod.send(
+                                i18n.t("cli.auto.notify_title"),
+                                i18n.t("cli.auto.notify_body", temp=t, rpm=report.fan_rpm),
+                            )
+                            last_reminder_ts = now
+
+                    if logger:
+                        log_color = current_color if current_color is not None else report.color
+                        log_effect = current_effect
+                        logger.log(t, gpu_t, report.fan_rpm, log_color, log_effect)
                 except (OSError, ValueError) as e:
                     print(f"[{time.strftime('%H:%M:%S')}] {i18n.t('cli.auto.device_error', error=e, interval=interval)}", flush=True)
-                    time.sleep(interval)
-                    continue
-
-                cpu_color, cpu_effect, cpu_speed = current_color, current_effect, 0
-                active_temp = None
-                if t is not None:
-                    cpu_color = thresholds[0]["color"]
-                    cpu_effect = thresholds[0].get("effect", 0)
-                    cpu_speed = thresholds[0].get("speed", 0)
-                    active_temp = thresholds[0]["temp_c"]
-                    for th in thresholds:
-                        limit = th["temp_c"]
-                        # Kühlt die CPU ab (aktuell aktive Schwelle liegt
-                        # oberhalb dieser Schwelle), verschiebe den Grenzwert
-                        # um die Hysterese nach unten.
-                        if current_temp is not None and th["temp_c"] <= current_temp:
-                            limit -= hysteresis
-                        if t >= limit:
-                            cpu_color = th["color"]
-                            cpu_effect = th.get("effect", 0)
-                            cpu_speed = th.get("speed", 0)
-                            active_temp = th["temp_c"]
-
-                if gpu_enabled and gpu_t is not None:
-                    if not gpu_alert_active and gpu_t >= gpu_cfg["temp_c"]:
-                        gpu_alert_active = True
-                    elif gpu_alert_active and gpu_t < gpu_cfg["temp_c"] - gpu_cfg["hysteresis_c"]:
-                        gpu_alert_active = False
-
-                # "whichever is hotter wins": GPU alert only kicks in when
-                # active AND the GPU is at least as hot as the CPU -
-                # otherwise the normal CPU color logic still wins.
-                if gpu_alert_active and gpu_t is not None and (t is None or gpu_t >= t):
-                    target_color, target_effect, target_speed = gpu_cfg["color"], gpu_cfg["effect"], gpu_cfg.get("speed", 0)
-                else:
-                    target_color, target_effect, target_speed = cpu_color, cpu_effect, cpu_speed
-
-                if target_color is not None and (target_color, target_effect, target_speed) != (current_color, current_effect, getattr(dev, '_last_speed', None)):
-                    r = dev.set_light(color=target_color, effect=target_effect, speed=target_speed, power=True)
-                    dev._last_speed = target_speed
-                    ts = time.strftime("%H:%M:%S")
-                    gpu_info = f"  GPU={gpu_t:.1f}°C" if gpu_t is not None else ""
-                    cpu_info = f"{t:.1f}°C" if t is not None else "?"
-                    print(i18n.t(
-                        "cli.auto.color_change", ts=ts, cpu_info=cpu_info, gpu_info=gpu_info,
-                        color_name=r.color_name(), effect_name=r.effect_name(),
-                    ), flush=True)
-                    current_color, current_effect = target_color, target_effect
-                if target_color is not None:
-                    current_temp = active_temp if t is not None else current_temp
-
-                if fan_curve_enabled and t is not None:
-                    target_fan_raw = fan_curve_mod.raw_for_temp(curve_cfg["points"], t)
-                    if current_fan_raw is None or abs(target_fan_raw - current_fan_raw) >= curve_min_change:
-                        report = dev.set_fan_speed(target_fan_raw)
-                        ts = time.strftime("%H:%M:%S")
-                        print(i18n.t(
-                            "cli.auto.fan_curve_change", ts=ts, temp=t, raw=target_fan_raw, rpm=report.fan_rpm,
-                        ), flush=True)
-                        current_fan_raw = target_fan_raw
-
-                # Reminder: CPU hot, but measured speed stays low - e.g.
-                # useful while fan_curve (above) isn't enabled.
-                if fan_reminder_enabled and t is not None and t >= fan_cfg["temp_c"] and report.fan_rpm < fan_cfg["min_rpm"]:
-                    now = time.time()
-                    if now - last_reminder_ts >= fan_cfg.get("cooldown_s", 300):
-                        notify_mod.send(
-                            i18n.t("cli.auto.notify_title"),
-                            i18n.t("cli.auto.notify_body", temp=t, rpm=report.fan_rpm),
-                        )
-                        last_reminder_ts = now
-
-                if logger:
-                    log_color = current_color if current_color is not None else report.color
-                    log_effect = current_effect
-                    logger.log(t, gpu_t, report.fan_rpm, log_color, log_effect)
 
                 time.sleep(interval)
     except KeyboardInterrupt:

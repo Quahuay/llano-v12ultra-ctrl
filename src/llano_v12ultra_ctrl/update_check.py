@@ -116,30 +116,33 @@ def installed_via_package_manager():
     import shutil
     import subprocess
 
-    for cmd, args in (
-        ("dpkg-query", ["-W", "-f", "${Status}", "llano-v12ultra-ctrl"]),
-        ("pacman", ["-Q", "llano-v12ultra-ctrl"]),
-    ):
+    # dpkg-query liefert auch für ein entferntes, aber nicht gepurgtes Paket
+    # returncode 0 (Status dann "deinstall ok config-files"). Der Rückgabewert
+    # allein reicht also nicht - sonst bekäme z.B. ein AppImage-Nutzer, der das
+    # .deb irgendwann mal installiert hatte, dauerhaft den Hinweis "Update über
+    # den Paketmanager" statt des Download-Links. Deshalb den Status-String
+    # prüfen. pacman -Q hat das Problem nicht (nicht-null bei unbekanntem Paket).
+    checks = (
+        ("dpkg-query", ["-W", "-f", "${Status}", "llano-v12ultra-ctrl"], "install ok installed"),
+        ("pacman", ["-Q", "llano-v12ultra-ctrl"], None),
+    )
+    for cmd, args, expect_stdout in checks:
         if not shutil.which(cmd):
             continue
         try:
-            result = subprocess.run([cmd] + args, capture_output=True, timeout=2)
-            if result.returncode == 0:
-                return True
+            result = subprocess.run(
+                [cmd] + args, capture_output=True, text=True, errors="replace", timeout=2
+            )
         except (OSError, subprocess.SubprocessError):
             continue
+        if result.returncode != 0:
+            continue
+        if expect_stdout is None or expect_stdout in (result.stdout or ""):
+            return True
     return False
 
 
-def check_for_update_async(callback, current_version=None):
-    """Führt check_for_update() in einem Hintergrund-Thread aus (z.B. für die
-    GUI, damit der Qt-Event-Loop nicht blockiert) und ruft `callback(result)`
-    im Worker-Thread auf - der Aufrufer muss ggf. selbst zurück in den
-    GUI-Thread marshalen (z.B. per Qt-Signal), falls er UI-Elemente
-    anfasst."""
-    import threading
-
-    def _run():
-        callback(check_for_update(current_version))
-
-    threading.Thread(target=_run, daemon=True).start()
+# Hinweis: einen asynchronen Wrapper gibt es hier bewusst nicht mehr. Die GUI
+# nutzt stattdessen gui/update_worker.py (QThread + pyqtSignal), weil ein roher
+# threading.Thread mit Callback nicht sicher aus dem Worker-Thread heraus auf
+# Qt-Widgets zugreifen dürfte.

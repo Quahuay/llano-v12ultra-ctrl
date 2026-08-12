@@ -101,18 +101,26 @@ def load_config(path=None):
             cfg["general"].update(user_cfg["general"])
         if "auto" in user_cfg:
             user_auto = user_cfg["auto"]
-            cfg["auto"].update(user_auto)
             # Sub-Sections im [auto]-Block sind TOML-Tables (dicts). Ein
-            # normales dict.update ersetzt das komplette Default-Dict des
-            # Sub-Sections - partial user configs würden alle restlichen
-            # Default-Keys verlieren. Stattdessen: jeden Sub-Section-Key
-            # einzeln mergen, falls es ein dict ist.
+            # normales dict.update ersetzt das komplette Default-Dict eines
+            # Sub-Sections - eine partielle Nutzer-Config würde alle übrigen
+            # Default-Keys verlieren. Die Defaults müssen deshalb VOR dem
+            # update gesichert werden: danach zeigt cfg["auto"][key] bereits
+            # auf das Dict des Nutzers, ein Merge an dieser Stelle würde es
+            # nur mit sich selbst mergen und wäre wirkungslos.
             _SUB_KEYS = ("gpu_alert", "fan_reminder", "fan_curve", "log")
-            for key in _SUB_KEYS:
-                if key in user_auto and isinstance(user_auto[key], dict):
-                    cfg["auto"][key].update(user_auto[key])
-            if "fan_curve" in user_auto and isinstance(user_auto.get("fan_curve"), dict) and "points" in user_auto["fan_curve"]:
-                cfg["auto"]["fan_curve"]["points"] = user_auto["fan_curve"]["points"]
+            sub_defaults = {
+                key: cfg["auto"][key] for key in _SUB_KEYS
+                if isinstance(cfg["auto"].get(key), dict)
+            }
+            cfg["auto"].update(user_auto)
+            for key, defaults in sub_defaults.items():
+                if isinstance(user_auto.get(key), dict):
+                    merged = dict(defaults)
+                    # Listen (z.B. fan_curve.points) ersetzt der Nutzer bewusst
+                    # komplett, statt sie zu ergänzen.
+                    merged.update(user_auto[key])
+                    cfg["auto"][key] = merged
     return cfg
 
 
@@ -181,6 +189,7 @@ def save_language(language, path=None):
         rest_lines = after.split("\n")
         cut = len(rest_lines)
         new_block_lines = []
+        replaced = False
         for i, line in enumerate(rest_lines[1:], start=1):
             if line.startswith("["):
                 cut = i
@@ -188,10 +197,23 @@ def save_language(language, path=None):
             stripped = line.strip()
             if stripped.startswith("language") and "=" in stripped:
                 new_block_lines.append(f'language = "{language}"')
+                replaced = True
             elif stripped:
                 new_block_lines.append(line)
+        if not replaced:
+            # [general] existiert, enthält aber (noch) keinen language-Key,
+            # z.B. wenn dort bisher nur update_check stand. Ohne dieses
+            # Anhängen wäre die Funktion in genau dem Fall wirkungslos: die
+            # Schleife oben ersetzt nur eine bereits vorhandene Zeile, und
+            # die GUI hätte "Sprache gespeichert" gemeldet, ohne dass sich
+            # etwas ändert.
+            new_block_lines.append(f'language = "{language}"')
         new_block = "[general]\n" + "\n".join(new_block_lines) + "\n"
         after = "\n".join(rest_lines[cut:])
+        # Leerzeile vor einem folgenden Abschnitt erhalten (die Schleife oben
+        # verwirft Leerzeilen innerhalb des Blocks).
+        if after.startswith("["):
+            after = "\n" + after
         new_content = before + new_block + after
     else:
         block = f'[general]\nlanguage = "{language}"\n'

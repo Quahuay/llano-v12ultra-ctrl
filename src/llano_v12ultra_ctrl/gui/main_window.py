@@ -494,6 +494,11 @@ class MainWindow(QMainWindow):
         cfg = config_mod.load_config()
         curve_cfg = cfg["auto"]["fan_curve"]
         self.fan_curve_enabled_checkbox.setChecked(curve_cfg.get("enabled", False))
+        # min_change_raw hat kein Bedienelement in der GUI, muss aber beim
+        # Speichern erhalten bleiben: save_fan_curve() schreibt den ganzen
+        # [auto.fan_curve]-Block neu, ein fester Default würde einen vom
+        # Nutzer gesetzten Wert also stillschweigend überschreiben.
+        self._fan_curve_min_change = curve_cfg.get("min_change_raw", 3)
         points = fan_curve_mod.sorted_points(curve_cfg.get("points", []))
         self.fan_curve_graph.set_points(points)
         self._rebuild_curve_table(points)
@@ -567,7 +572,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, i18n.t("gui.fan_curve.save_error_title"), i18n.t("gui.fan_curve.save_error_text"))
             return
         config_mod.save_fan_curve(
-            self.fan_curve_enabled_checkbox.isChecked(), points, min_change_raw=3
+            self.fan_curve_enabled_checkbox.isChecked(), points,
+            min_change_raw=getattr(self, "_fan_curve_min_change", 3),
         )
         self._load_fan_curve()  # sortiert neu geladen anzeigen
         self.statusBar().showMessage(i18n.t("gui.fan_curve.save_done"), 5000)

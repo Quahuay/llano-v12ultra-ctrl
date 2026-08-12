@@ -7,7 +7,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Läuft vor allen Build-Jobs: ein Paket zu bauen, dessen Code nicht
+  # durchläuft, hilft niemandem. Bewusst ohne pytest/venv - die Tests nutzen
+  # nur die Standardbibliothek und laufen damit ohne Installationsschritt,
+  # passend dazu, dass das Projekt auch zur Laufzeit ohne HID-Fremdbibliothek
+  # auskommt.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.14"]  # unterste unterstützte + aktuelle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
   deb:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +43,7 @@ jobs:
           path: dist/*.deb
 
   appimage:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +57,7 @@ jobs:
           path: dist/*.AppImage
 
   arch:
+    needs: test
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
@@ -58,6 +79,7 @@ jobs:
           path: "*.pkg.tar.zst"
 
   msi:
+    needs: test
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
