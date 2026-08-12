@@ -6,4 +6,4 @@ device.py für die Low-Level hidraw-Ansteuerung. gui/ enthält die optionale
 PyQt6-Oberfläche (siehe gui/app.py), cli.py das Kommandozeilen-Interface.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
