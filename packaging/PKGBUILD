@@ -9,7 +9,7 @@
 
 pkgname=llano-v12ultra-ctrl
 pkgver=0.1.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Native Linux control tool for the llano V12 Ultra USB-HID cooling pad (Myth.Cool / Holtek 374a:b101) - CLI + PyQt6 GUI"
 arch=('any')
 url="https://github.com/Quahuay/llano-v12ultra-ctrl"
@@ -38,6 +38,9 @@ package() {
     install -Dm644 packaging/70-llano-v12ultra-ctrl.rules \
         "$pkgdir/usr/lib/udev/rules.d/70-llano-v12ultra-ctrl.rules"
     install -Dm644 systemd/llano-v12ultra-ctrl.service \
+        "$pkgdir/usr/lib/systemd/user/llano-v12ultra-ctrl.service"
+    # Die Unit im Repo zeigt auf den pip/pipx-Pfad, das Paket installiert nach /usr/bin.
+    sed -i 's|^ExecStart=%h/\.local/bin/|ExecStart=/usr/bin/|' \
         "$pkgdir/usr/lib/systemd/user/llano-v12ultra-ctrl.service"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
