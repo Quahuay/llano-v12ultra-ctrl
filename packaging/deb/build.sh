@@ -26,7 +26,9 @@ cp -r "$REPO_ROOT/src/llano_v12ultra_ctrl" "$PYLIB/"
 find "$PYLIB/llano_v12ultra_ctrl" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 find "$PYLIB/llano_v12ultra_ctrl" -name '*.pyc' -delete 2>/dev/null || true
 cp "$REPO_ROOT/packaging/70-llano-v12ultra-ctrl.rules" "$STAGE/usr/lib/udev/rules.d/"
-cp "$REPO_ROOT/systemd/llano-v12ultra-ctrl.service" "$STAGE/usr/lib/systemd/user/"
+# Die Unit im Repo zeigt auf den pip/pipx-Pfad, das Paket installiert nach /usr/bin.
+sed 's|^ExecStart=%h/\.local/bin/|ExecStart=/usr/bin/|' "$REPO_ROOT/systemd/llano-v12ultra-ctrl.service" \
+    > "$STAGE/usr/lib/systemd/user/llano-v12ultra-ctrl.service"
 
 cat > "$STAGE/usr/bin/llano-v12ultra-ctrl" <<'EOF'
 #!/usr/bin/env python3
