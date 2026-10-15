@@ -42,5 +42,13 @@ package() {
     # Die Unit im Repo zeigt auf den pip/pipx-Pfad, das Paket installiert nach /usr/bin.
     sed -i 's|^ExecStart=%h/\.local/bin/|ExecStart=/usr/bin/|' \
         "$pkgdir/usr/lib/systemd/user/llano-v12ultra-ctrl.service"
+    # Greift das Muster irgendwann nicht mehr (Unit im Repo umgebaut), waere die
+    # installierte Unit still kaputt - deshalb hier hart abbrechen statt eine
+    # Unit mit totem ExecStart zu paketieren.
+    grep -q '^ExecStart=/usr/bin/llano-v12ultra-ctrl\b' \
+        "$pkgdir/usr/lib/systemd/user/llano-v12ultra-ctrl.service" || {
+        echo "FEHLER: ExecStart der systemd-Unit zeigt nicht auf /usr/bin" >&2
+        exit 1
+    }
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

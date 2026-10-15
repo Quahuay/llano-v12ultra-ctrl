@@ -29,6 +29,11 @@ cp "$REPO_ROOT/packaging/70-llano-v12ultra-ctrl.rules" "$STAGE/usr/lib/udev/rule
 # Die Unit im Repo zeigt auf den pip/pipx-Pfad, das Paket installiert nach /usr/bin.
 sed 's|^ExecStart=%h/\.local/bin/|ExecStart=/usr/bin/|' "$REPO_ROOT/systemd/llano-v12ultra-ctrl.service" \
     > "$STAGE/usr/lib/systemd/user/llano-v12ultra-ctrl.service"
+# Greift das Muster irgendwann nicht mehr (Unit im Repo umgebaut), waere die
+# installierte Unit still kaputt - deshalb hier hart abbrechen statt eine
+# Unit mit totem ExecStart zu paketieren.
+grep -q '^ExecStart=/usr/bin/llano-v12ultra-ctrl\b' "$STAGE/usr/lib/systemd/user/llano-v12ultra-ctrl.service" \
+    || { echo "FEHLER: ExecStart der systemd-Unit zeigt nicht auf /usr/bin" >&2; exit 1; }
 
 cat > "$STAGE/usr/bin/llano-v12ultra-ctrl" <<'EOF'
 #!/usr/bin/env python3
